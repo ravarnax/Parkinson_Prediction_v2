@@ -759,6 +759,60 @@ with tab3:
                 
                 st.info("💡 **Interpretation:** If the Green line is close to the Red line at the end, your model has **Generalized well** and is not overfitted.")
 
+        st.markdown("---")
+        st.markdown("### Diagnostic Accuracy (Confusion Matrix)")
+        st.markdown(
+            "This matrix shows exactly where the model makes mistakes using 5-Fold Cross Validation. "
+            "In medical screening, we care most about minimizing **False Negatives** (missing a sick patient)."
+        )
+
+        if st.button("🧮 Generate Confusion Matrix"):
+            with st.spinner("Calculating out-of-fold predictions..."):
+                from sklearn.metrics import confusion_matrix
+                from sklearn.model_selection import cross_val_predict
+                
+                X_all = df_raw[ORIGINAL_FEATURES]
+                y_all = df_raw["status"]
+                
+                # Transform data through the pipeline
+                X_p = selector.transform(scaler.transform(engineer_features(X_all)))
+                
+                # Use cross_val_predict to get realistic out-of-sample predictions
+                y_pred = cross_val_predict(model, X_p, y_all, cv=5)
+                cm = confusion_matrix(y_all, y_pred)
+                
+                # Plotly Heatmap for the Confusion Matrix
+                fig_cm = px.imshow(
+                    cm, 
+                    text_auto=True, 
+                    color_continuous_scale=[[0, "#1e1e1e"], [1, "#DC2626"]], 
+                    labels=dict(x="Model Prediction", y="Actual Clinical Diagnosis", color="Patients"),
+                    x=["Predicted Healthy", "Predicted Parkinson's"],
+                    y=["Actual Healthy", "Actual Parkinson's"]
+                )
+                
+                fig_cm.update_layout(
+                    title="5-Fold CV Confusion Matrix",
+                    height=450,
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="#d1fae5")
+                )
+                
+                # Make the numbers inside the matrix large and readable
+                fig_cm.update_traces(textfont={"size": 28, "color": "white"})
+                
+                # Display the matrix alongside a clinical breakdown
+                col1, col2 = st.columns([1.5, 1])
+                with col1:
+                    st.plotly_chart(fig_cm, use_container_width=True)
+                with col2:
+                    st.markdown("<br><br>", unsafe_allow_html=True)
+                    st.markdown(f"**✅ True Positives (Caught PD):** {cm[1][1]}")
+                    st.markdown(f"**✅ True Negatives (Healthy):** {cm[0][0]}")
+                    st.markdown(f"**⚠️ False Positives (False Alarm):** {cm[0][1]}")
+                    st.markdown(f"**🚨 False Negatives (Missed PD):** {cm[1][0]}")
+
     except Exception as e:
         st.warning(f"Feature explorer needs the raw dataset: {e}")
 

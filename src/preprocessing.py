@@ -4,7 +4,7 @@ preprocessing.py — Feature engineering, selection, and scaling pipeline.
 Improvements over v1:
   - stratify=y in train_test_split (fixes biased test set)
   - 7 engineered features derived from domain knowledge
-  - Mutual information feature selection (22+7 → 18 best features)
+  - Mutual information feature selection (22+7 -> 18 best features)
 """
 import pandas as pd
 import numpy as np
@@ -21,10 +21,10 @@ def load_data(filepath):
     """Load the Parkinson's dataset from a CSV/data file."""
     try:
         df = pd.read_csv(filepath)
-        print(f"✅ Data loaded: {filepath}  |  Shape: {df.shape}")
+        print(f"Data loaded: {filepath}  |  Shape: {df.shape}")
         return df
     except FileNotFoundError:
-        print(f"❌ File not found: {filepath}")
+        print(f"File not found: {filepath}")
         return None
 
 
@@ -94,6 +94,6 @@ def preprocess_data(df, test_size=0.2, random_state=42, n_features=18):
     X_test_sel  = selector.transform(X_test_sc)
 
     selected = [list(X_eng.columns)[i] for i in selector.get_support(indices=True)]
-    print(f"After selection    : {len(selected)} features → {selected}")
+    print(f"After selection    : {len(selected)} features -> {selected}")
 
     return X_train_sel, X_test_sel, y_train, y_test, scaler, selector

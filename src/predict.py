@@ -20,7 +20,7 @@ def _load_artifacts():
 
 
 def _prepare(feature_dict: dict):
-    """Apply full pipeline: engineer → scale → select."""
+    """Apply full pipeline: engineer -> scale -> select."""
     model, scaler, selector = _load_artifacts()
     df = pd.DataFrame([feature_dict])[ORIGINAL_FEATURES]
     df_eng = engineer_features(df)

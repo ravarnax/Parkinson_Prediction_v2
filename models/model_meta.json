@@ -1,5 +1,5 @@
 {
-  "model_type": "VotingClassifier (GB\u00d72 + RF + SVM + ExtraTrees)",
+  "model_type": "VotingClassifier (GB + RF + SVM + ExtraTrees)",
   "n_original_features": 22,
   "n_engineered_features": 29,
   "n_selected_features": 18,
@@ -40,9 +40,9 @@
     "MDVP:Flo(Hz)",
     "MDVP:Jitter(%)",
     "MDVP:Jitter(Abs)",
-    "MDVP:Shimmer(dB)",
     "Shimmer:APQ5",
     "MDVP:APQ",
+    "Shimmer:DDA",
     "NHR",
     "HNR",
     "spread1",
@@ -55,10 +55,10 @@
     "HNR_NHR_diff"
   ],
   "cv_scores": {
-    "Accuracy": 92.82,
-    "Recall": 97.29,
-    "Precision": 93.74,
-    "F1-Score": 95.37,
-    "AUC-ROC": 96.96
+    "Accuracy": 90.26,
+    "Recall": 95.91,
+    "Precision": 92.09,
+    "F1-Score": 93.77,
+    "AUC-ROC": 95.42
   }
 }
