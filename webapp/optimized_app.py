@@ -718,6 +718,47 @@ with tab3:
         )
         st.plotly_chart(fig_corr, use_container_width=True)
 
+        st.markdown("---")
+        st.markdown("### Model Generalization (Learning Curve)")
+        
+        if st.button("📈 Generate Learning Curve"):
+            with st.spinner("Training multiple sub-models to check for overfitting..."):
+                from sklearn.model_selection import learning_curve
+                
+                X_all = df_raw[ORIGINAL_FEATURES]
+                y_all = df_raw["status"]
+                
+                # Transform the data through your pipeline
+                X_p = selector.transform(scaler.transform(engineer_features(X_all)))
+                
+                train_sizes, train_scores, test_scores = learning_curve(
+                    model, X_p, y_all, cv=5, scoring='accuracy',
+                    train_sizes=np.linspace(0.1, 1.0, 5), n_jobs=-1
+                )
+                
+                # Calculate means and standard deviation
+                train_mean = np.mean(train_scores, axis=1) * 100
+                test_mean = np.mean(test_scores, axis=1) * 100
+                
+                fig_lc = go.Figure()
+                fig_lc.add_trace(go.Scatter(x=train_sizes, y=train_mean, name="Training Accuracy",
+                                          line=dict(color='#ef4444', width=3)))
+                fig_lc.add_trace(go.Scatter(x=train_sizes, y=test_mean, name="Validation Accuracy",
+                                          line=dict(color='#22c55e', width=3)))
+                
+                fig_lc.update_layout(
+                    title="Learning Curve: Training vs. Validation",
+                    xaxis_title="Number of Training Samples",
+                    yaxis_title="Accuracy (%)",
+                    yaxis=dict(range=[80, 101]),
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(255,255,255,0.02)",
+                    legend=dict(orientation="h", y=-0.2)
+                )
+                st.plotly_chart(fig_lc, use_container_width=True)
+                
+                st.info("💡 **Interpretation:** If the Green line is close to the Red line at the end, your model has **Generalized well** and is not overfitted.")
+
     except Exception as e:
         st.warning(f"Feature explorer needs the raw dataset: {e}")
 
