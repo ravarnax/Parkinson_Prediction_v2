@@ -10,7 +10,6 @@ import joblib
 import os, sys, json
 import plotly.graph_objects as go
 import plotly.express as px
-import textwrap
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.config import (MODEL_PATH, SCALER_PATH, SELECTOR_PATH,
@@ -54,7 +53,6 @@ html,body,[class*="css"]{font-family:'Inter',sans-serif;}
   -webkit-backdrop-filter:blur(20px);
   box-shadow:0 8px 32px rgba(0,0,0,0.45),
              inset 0 1px 0 rgba(255,255,255,0.06);}
-/* animated gradient orbs behind the glass */
 .perf-header::before{
   content:'';
   position:absolute;top:-60px;right:-60px;
@@ -90,7 +88,6 @@ html,body,[class*="css"]{font-family:'Inter',sans-serif;}
   text-align:center;
   position:relative;overflow:hidden;
   transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease;}
-/* shimmer sweep on hover */
 .perf-card::before{
   content:'';
   position:absolute;top:0;left:-75%;
@@ -123,7 +120,6 @@ html,body,[class*="css"]{font-family:'Inter',sans-serif;}
   background:rgba(22,163,74,0.15);
   border:1px solid rgba(74,222,128,0.25);
   color:#6ee7b7;letter-spacing:.4px;}
-/* highlight the star card (Recall) */
 .perf-card.star-card{
   border-color:rgba(74,222,128,0.30);
   background:rgba(22,163,74,0.07);}
@@ -134,24 +130,6 @@ html,body,[class*="css"]{font-family:'Inter',sans-serif;}
   .perf-cards{display:grid;grid-template-columns:1fr 1fr;}
   .perf-card .pc-val{font-size:1.5rem;}
 }
-
-/* ── Input section card ── */
-.input-card{
-  background:#111812;
-  border:1px solid #1f3327;
-  border-radius:12px;
-  padding:1.2rem 1.4rem;
-  margin-bottom:1.2rem;}
-.card-title{
-  display:flex;align-items:center;gap:8px;
-  font-size:1rem;font-weight:700;color:#4ade80;
-  margin-bottom:.2rem;border-bottom:1px solid #1f3327;padding-bottom:.6rem;}
-.card-tooltip{
-  font-size:.78rem;color:#6b7280;
-  margin-bottom:.8rem;padding:.5rem .8rem;
-  background:rgba(74,222,128,0.05);
-  border-left:3px solid #16A34A;
-  border-radius:0 6px 6px 0;}
 
 /* ── Result boxes ── */
 .result-pd{background:rgba(220,38,38,0.1);border:2px solid #DC2626;border-radius:12px;padding:1.2rem}
@@ -174,11 +152,6 @@ html,body,[class*="css"]{font-family:'Inter',sans-serif;}
   box-shadow:0 0 28px rgba(16,163,74,0.7);
   transform:translateY(-2px);}
 .stButton>button:active{transform:translateY(0);}
-
-/* ── Group header (legacy kept for batch tab) ── */
-.group-header{background:#0d3321;color:#4ade80;padding:.4rem .8rem;
-  border-radius:5px;font-weight:600;margin-bottom:.4rem;font-size:.95rem;
-  border:1px solid #1a4a2e;}
 
 /* ══════════════════════════════════════════════
    SECTIONAL FEATURE CARDS  (Tab 1)
@@ -217,7 +190,9 @@ html,body,[class*="css"]{font-family:'Inter',sans-serif;}
   border-radius:20px;
   padding:.15rem .65rem;
   letter-spacing:.4px;
-  text-transform:uppercase;}
+  text-transform:uppercase;
+  white-space: nowrap; 
+  flex-shrink: 0;}
 .section-card-desc{
   font-size:.8rem;
   color:#6b7280;
@@ -226,13 +201,6 @@ html,body,[class*="css"]{font-family:'Inter',sans-serif;}
   background:rgba(74,222,128,0.04);
   border-left:3px solid #16A34A;
   border-radius:0 6px 6px 0;}
-
-/* ── Responsive ── */
-@media(max-width:768px){
-  .glass-metrics{flex-direction:column;}
-  .glass-card .val{font-size:1.4rem;}
-  .section-card{padding:1rem .9rem .7rem;}
-}
 
 /* ── Medical tooltip details ── */
 .med-tooltip{
@@ -293,42 +261,36 @@ with st.expander("📊 Model Performance Dashboard", expanded=True):
     <div class="perf-header">
       <div class="perf-header-label">⚡ 5-Fold Stratified Cross-Validation Results — Voting Ensemble</div>
       <div class="perf-cards">
-
         <div class="perf-card">
           <span class="pc-icon">🎯</span>
           <div class="pc-val">{cv_scores.get('Accuracy','92.82')}%</div>
           <div class="pc-lbl">Accuracy</div>
           <div class="pc-badge">CV Score</div>
         </div>
-
         <div class="perf-card star-card">
           <span class="pc-icon">⭐</span>
           <div class="pc-val">{cv_scores.get('Recall','97.29')}%</div>
           <div class="pc-lbl">Recall</div>
           <div class="pc-badge">Primary KPI ★</div>
         </div>
-
         <div class="perf-card">
           <span class="pc-icon">🔬</span>
           <div class="pc-val">{cv_scores.get('Precision','—')}%</div>
           <div class="pc-lbl">Precision</div>
           <div class="pc-badge">CV Score</div>
         </div>
-
         <div class="perf-card">
           <span class="pc-icon">⚖️</span>
           <div class="pc-val">{cv_scores.get('F1-Score','—')}%</div>
           <div class="pc-lbl">F1-Score</div>
           <div class="pc-badge">CV Score</div>
         </div>
-
         <div class="perf-card">
           <span class="pc-icon">📈</span>
           <div class="pc-val">{cv_scores.get('AUC-ROC','—')}%</div>
           <div class="pc-lbl">AUC-ROC</div>
           <div class="pc-badge">CV Score</div>
         </div>
-
       </div>
     </div>
     """.split('\n')]), unsafe_allow_html=True)
@@ -345,7 +307,6 @@ with st.expander("📊 Model Performance Dashboard", expanded=True):
         **Dataset:** UCI Oxford Parkinson's — 195 recordings
         """)
     with i2:
-        # Before vs After bar chart
         fig = go.Figure()
         metrics = ["Accuracy", "Recall", "Precision", "F1-Score", "AUC-ROC"]
         before  = [92.31, 96.57, 93.83, 94.98, 96.49]
@@ -356,10 +317,8 @@ with st.expander("📊 Model Performance Dashboard", expanded=True):
             cv_scores.get('F1-Score',  0),
             cv_scores.get('AUC-ROC',   0),
         ]
-        fig.add_trace(go.Bar(name="Before (v1)", x=metrics, y=before,
-                              marker_color="#BBF7D0"))
-        fig.add_trace(go.Bar(name="After (v2)",  x=metrics, y=after,
-                              marker_color="#16A34A"))
+        fig.add_trace(go.Bar(name="Before (v1)", x=metrics, y=before, marker_color="#BBF7D0"))
+        fig.add_trace(go.Bar(name="After (v2)",  x=metrics, y=after, marker_color="#16A34A"))
         fig.update_layout(
             barmode="group", height=260, title="Before vs After Improvements",
             yaxis=dict(range=[85, 100]), margin=dict(l=0,r=0,t=35,b=0),
@@ -369,9 +328,6 @@ with st.expander("📊 Model Performance Dashboard", expanded=True):
         )
         st.plotly_chart(fig, use_container_width=True)
     with i3:
-        # ── Top-10 Feature Importance (Mutual Information proxy scores) ──
-        # These scores are MI-derived importance weights from the training pipeline.
-        # Sorted descending; top 10 of the 18 selected features are highlighted.
         fi_features = [
             "PPE", "spread1", "MDVP:Fo(Hz)", "HNR",
             "nonlinear_composite", "MDVP:Jitter(%)", "MDVP:Shimmer(dB)",
@@ -382,38 +338,26 @@ with st.expander("📊 Model Performance Dashboard", expanded=True):
         fi_colors = [
             "#4ade80" if s >= 0.35 else
             "#a3e635" if s >= 0.28 else
-            "#fbbf24"
-            for s in fi_scores
+            "#fbbf24" for s in fi_scores
         ]
         fig_fi = go.Figure(go.Bar(
-            x=fi_scores[::-1],
-            y=fi_features[::-1],
-            orientation="h",
-            marker=dict(color=fi_colors[::-1],
-                        line=dict(color="rgba(255,255,255,0.06)", width=1)),
+            x=fi_scores[::-1], y=fi_features[::-1], orientation="h",
+            marker=dict(color=fi_colors[::-1], line=dict(color="rgba(255,255,255,0.06)", width=1)),
             text=[f"{s:.3f}" for s in fi_scores[::-1]],
-            textposition="outside",
-            textfont=dict(color="#86efac", size=10),
+            textposition="outside", textfont=dict(color="#86efac", size=10),
             hovertemplate="<b>%{y}</b><br>MI Score: %{x:.3f}<extra></extra>",
         ))
         fig_fi.update_layout(
-            title=dict(text="🏆 Top 10 Feature Importance",
-                       font=dict(size=13, color="#4ade80")),
-            height=305,
-            margin=dict(l=0, r=55, t=35, b=10),
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(255,255,255,0.02)",
+            title=dict(text="🏆 Top 10 Feature Importance", font=dict(size=13, color="#4ade80")),
+            height=305, margin=dict(l=0, r=55, t=35, b=10),
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(255,255,255,0.02)",
             xaxis=dict(
-                title=dict(text="Mutual Information Score",
-                           font=dict(size=10, color="#86efac")),
+                title=dict(text="Mutual Information Score", font=dict(size=10, color="#86efac")),
                 tickfont=dict(size=9, color="#86efac"),
                 gridcolor="rgba(74,222,128,0.08)",
                 range=[0, max(fi_scores) * 1.22],
             ),
-            yaxis=dict(
-                tickfont=dict(size=10, color="#d1fae5"),
-                gridcolor="rgba(0,0,0,0)",
-            ),
+            yaxis=dict(tickfont=dict(size=10, color="#d1fae5"), gridcolor="rgba(0,0,0,0)"),
             bargap=0.28,
         )
         st.plotly_chart(fig_fi, use_container_width=True)
@@ -440,14 +384,10 @@ with tab1:
     )
     st.markdown("")
 
-    # ── Three sectional cards (with Plain-English medical tooltips) ──────────
     SECTION_CARDS = [
         {
-            "icon": "🎵",
-            "title": "Fundamental Frequency",
-            "badge": "3 features",
-            "desc": "Average, maximum and minimum pitch of the voice (Hz). "
-                    "Parkinson's patients typically show a lower and more erratic pitch.",
+            "icon": "🎵", "title": "Fundamental Frequency", "badge": "3 features",
+            "desc": "Average, maximum and minimum pitch of the voice (Hz). Parkinson's patients typically show a lower and more erratic pitch.",
             "tooltip_html": """
 <details class="med-tooltip">
   <summary>ℹ️ Plain English — What is Fundamental Frequency?</summary>
@@ -460,11 +400,8 @@ with tab1:
             "features": ["MDVP:Fo(Hz)", "MDVP:Fhi(Hz)", "MDVP:Flo(Hz)"],
         },
         {
-            "icon": "〰️",
-            "title": "Jitter & Shimmer (Pitch & Amplitude Variation)",
-            "badge": "11 features",
-            "desc": "Jitter = cycle-to-cycle wobble in pitch timing. Shimmer = cycle-to-cycle wobble in loudness. "
-                    "Both are significantly elevated in Parkinson's patients.",
+            "icon": "〰️", "title": "Jitter & Shimmer (Pitch & Amplitude Variation)", "badge": "11 features",
+            "desc": "Jitter = cycle-to-cycle wobble in pitch timing. Shimmer = cycle-to-cycle wobble in loudness. Both are significantly elevated in Parkinson's patients.",
             "tooltip_html": """
 <details class="med-tooltip">
   <summary>ℹ️ Plain English — What are Jitter and Shimmer?</summary>
@@ -485,11 +422,8 @@ with tab1:
             ],
         },
         {
-            "icon": "📊",
-            "title": "Non-linear & Entropy Measures",
-            "badge": "8 features",
-            "desc": "Complexity and chaos metrics that reveal hidden patterns in the voice signal. "
-                    "They capture irregularities invisible to simple amplitude/pitch analysis.",
+            "icon": "📊", "title": "Non-linear & Entropy Measures", "badge": "8 features",
+            "desc": "Complexity and chaos metrics that reveal hidden patterns in the voice signal. They capture irregularities invisible to simple amplitude/pitch analysis.",
             "tooltip_html": """
 <details class="med-tooltip">
   <summary>ℹ️ Plain English — What are Non-linear Measures?</summary>
@@ -509,7 +443,6 @@ with tab1:
 
     feature_values = {}
     for card in SECTION_CARDS:
-        # ── Card header + tooltip ──
         st.markdown(
             f'<div class="section-card">'
             f'  <div class="section-card-title">'
@@ -522,7 +455,6 @@ with tab1:
             f'</div>',
             unsafe_allow_html=True,
         )
-        # ── Sliders rendered via Streamlit (must be outside HTML string) ──
         feats = card["features"]
         cols  = st.columns(2)
         for j, feat in enumerate(feats):
@@ -548,237 +480,102 @@ with tab1:
             proba = model.predict_proba(input_sel)[0]
 
             st.markdown("---")
-            col_res, col_chart = st.columns([1, 1])
+            
+            # ── ROW 1: Immediate Results (Message & Gauge) ──
+            col_msg, col_gauge = st.columns([1.3, 1])
 
-            with col_res:
-                
-                # Gauge
+            with col_msg:
+                if label == 1:
+                    st.markdown('\n'.join([line.lstrip() for line in f"""
+                    <div class="result-pd" style="padding:1rem; height:100%; display:flex; flex-direction:column; justify-content:center; margin-top:10px;">
+                        <div style="font-size:1.15rem;font-weight:700;color:#991B1B;margin-bottom:.3rem">
+                            ⚠️ POSITIVE — Parkinson's Risk Detected
+                        </div>
+                        <div style="font-size:1rem;color:#7F1D1D;line-height:1.5">
+                            PD Probability: <strong>{proba[1]*100:.1f}%</strong><br>
+                            Model Confidence: <strong>{proba[label]*100:.1f}%</strong>
+                        </div>
+                        <div style="margin-top:.4rem;font-size:.85rem;color:#991B1B">
+                            ⚠️ Screening tool only — neurologist confirmation required.
+                        </div>
+                    </div>""".split('\n')]), unsafe_allow_html=True)
+                else:
+                    st.markdown('\n'.join([line.lstrip() for line in f"""
+                    <div class="result-healthy" style="padding:1rem; height:100%; display:flex; flex-direction:column; justify-content:center; margin-top:10px;">
+                        <div style="font-size:1.15rem;font-weight:700;color:#065F46;margin-bottom:.3rem">
+                            ✅ NEGATIVE — No Parkinson's Indicators
+                        </div>
+                        <div style="font-size:1rem;color:#064E3B;line-height:1.5">
+                            Healthy Probability: <strong>{proba[0]*100:.1f}%</strong><br>
+                            Model Confidence: <strong>{proba[label]*100:.1f}%</strong>
+                        </div>
+                        <div style="margin-top:.4rem;font-size:.85rem;color:#065F46">
+                            Regular monitoring is still recommended for at-risk age groups.
+                        </div>
+                    </div>""".split('\n')]), unsafe_allow_html=True)
+
+            with col_gauge:
+                # GAUGE UPDATE: Increased font sizes and added bold weight
                 fig_g = go.Figure(go.Indicator(
                     mode="gauge+number",
                     value=round(proba[1]*100, 1),
-                    title={"text": "PD Risk Probability (%)"},
+                    title={"text": "PD Risk", "font": {"size": 22, "color": "white", "weight": "bold"}},
+                    number={"suffix": "%", "font": {"size": 48, "color": "white", "weight": "bold"}},
+                    domain={'x': [0, 1], 'y': [0, 1]},
                     gauge={
-                        "axis": {"range": [0, 100]},
+                        "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "white"},
                         "bar":  {"color": "#DC2626" if label == 1 else "#16A34A"},
                         "steps": [
                             {"range": [0,  40], "color": "#DCFCE7"},
                             {"range": [40, 70], "color": "#FEF9C3"},
                             {"range": [70,100], "color": "#FEE2E2"},
                         ],
-                        "threshold": {"line": {"color":"black","width":2}, "value": 50}
+                        "threshold": {"line": {"color":"white","width":3}, "value": 50}
                     }
                 ))
-                fig_g.update_layout(height=210, margin=dict(l=15,r=15,t=40,b=5),
-                                     paper_bgcolor="rgba(0,0,0,0)")
-                st.plotly_chart(fig_g, use_container_width=True)
+                fig_g.update_layout(
+                    height=250, 
+                    margin=dict(l=25, r=25, t=50, b=25),
+                    paper_bgcolor="rgba(0,0,0,0)"
+                )
+                st.plotly_chart(fig_g, use_container_width=True, config={'displayModeBar': False})
 
-                # result message
-                if label == 1:
-                    st.markdown('\n'.join([line.lstrip() for line in f"""
-                    <div class="result-pd">
-                        <div style="font-size:1.1rem;font-weight:700;color:#991B1B;margin-bottom:.4rem">
-                            ⚠️ POSITIVE — Parkinson's Risk Detected
-                        </div>
-                        <div style="font-size:.95rem;color:#7F1D1D;line-height:1.6">
-                            PD Probability: <strong>{proba[1]*100:.1f}%</strong><br>
-                            Model Confidence: <strong>{proba[label]*100:.1f}%</strong>
-                        </div>
-                        <div style="margin-top:.5rem;font-size:.82rem;color:#991B1B">
-                            ⚠️ Screening tool only — neurologist confirmation required.
-                        </div>
-                    </div>""".split('\n')]), unsafe_allow_html=True)
-                else:
-                    st.markdown('\n'.join([line.lstrip() for line in f"""
-                    <div class="result-healthy">
-                        <div style="font-size:1.1rem;font-weight:700;color:#065F46;margin-bottom:.4rem">
-                            ✅ NEGATIVE — No Parkinson's Indicators
-                        </div>
-                        <div style="font-size:.95rem;color:#064E3B;line-height:1.6">
-                            Healthy Probability: <strong>{proba[0]*100:.1f}%</strong><br>
-                            Model Confidence: <strong>{proba[label]*100:.1f}%</strong>
-                        </div>
-                        <div style="margin-top:.5rem;font-size:.82rem;color:#065F46">
-                            Regular monitoring is still recommended for at-risk age groups.
-                        </div>
-                    </div>""".split('\n')]), unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
 
-
-
-                # Derived features table
-                st.markdown("**Derived features (auto-computed by model):**")
+            # ── ROW 2: Data Breakdown (Tables Side-by-Side) ──
+            col_tbl1, col_tbl2 = st.columns([1, 1.4])
+            
+            with col_tbl1:
+                st.markdown("**Derived features (auto-computed):**")
                 derived = {
                     "PPE_RPDE_sum"       : round(feature_values["PPE"] + feature_values["RPDE"], 5),
                     "nonlinear_composite": round(feature_values["PPE"] * feature_values["RPDE"] * feature_values["DFA"], 6),
                     "Fo_range"           : round(feature_values["MDVP:Fhi(Hz)"] - feature_values["MDVP:Flo(Hz)"], 3),
                     "Jitter_total"       : round(feature_values["MDVP:Jitter(%)"] + feature_values["MDVP:RAP"] + feature_values["MDVP:PPQ"], 6),
                 }
-                st.dataframe(pd.DataFrame(derived, index=["Value"]).T.rename(columns={"Value":"Computed Value"}),
+                st.dataframe(pd.DataFrame(derived, index=["Value"]).T.rename(columns={"Value":"Computed"}),
                              use_container_width=True)
 
-            with col_chart:
-                # Patient vs healthy range comparison for key features
-                st.markdown("**Patient vs. healthy population range:**")
+            with col_tbl2:
+                st.markdown("**Patient vs. healthy population:**")
                 key_feats  = ["PPE", "RPDE", "HNR", "NHR", "MDVP:Jitter(%)", "MDVP:Shimmer", "spread1", "DFA"]
                 healthy_hi = [0.10, 0.45, 28.0, 0.02, 0.004, 0.02, -4.0, 0.72]
                 patient_vs = [feature_values[f] for f in key_feats]
-                flag       = ["⚠️ Elevated" if abs(patient_vs[i]) > abs(healthy_hi[i]) else "✅ Normal"
-                               for i in range(len(key_feats))]
+                
+                flag = ["⚠️ High" if abs(patient_vs[i]) > abs(healthy_hi[i]) else "✅ Normal"
+                         for i in range(len(key_feats))]
+                         
                 df_cmp = pd.DataFrame({
-                    "Feature"          : key_feats,
-                    "Patient Value"    : patient_vs,
-                    "Healthy Threshold": healthy_hi,
-                    "Status"           : flag,
+                    "Feature"  : key_feats,
+                    "Patient"  : patient_vs,
+                    "Baseline Max": healthy_hi,
+                    "Status"   : flag,
                 })
                 st.dataframe(df_cmp, use_container_width=True, hide_index=True)
 
         except Exception as e:
             st.error(f"Prediction error: {e}")
             st.exception(e)
-
-# ══════════════════════════════════════════════════════════════════════════
-# TAB 2 — BATCH PREDICTION
-# ══════════════════════════════════════════════════════════════════════════
-with tab2:
-    st.markdown("### Batch Patient Processing")
-    st.markdown(
-        "Upload a CSV with all 22 MDVP feature columns. "
-        "`name` and `status` columns are ignored if present."
-    )
-    st.markdown(
-        '<div class="tip-box">💡 The model automatically computes 7 additional features '
-        'internally — you only need to provide the original 22.</div>',
-        unsafe_allow_html=True
-    )
-    st.markdown("")
-
-    uploaded = st.file_uploader("Choose a CSV file", type=["csv"])
-    if uploaded:
-        try:
-            batch_df = pd.read_csv(uploaded)
-            st.markdown(f"**Preview** — {len(batch_df)} rows × {len(batch_df.columns)} columns")
-            st.dataframe(batch_df.head(5), use_container_width=True)
-
-            feat_df = batch_df.copy()
-            for col in ["name", "status"]:
-                if col in feat_df.columns:
-                    feat_df = feat_df.drop(columns=[col])
-
-            missing = [f for f in ORIGINAL_FEATURES if f not in feat_df.columns]
-            if missing:
-                st.error(f"❌ Missing {len(missing)} columns:")
-                st.code("\n".join(missing))
-                st.stop()
-
-            feat_df = feat_df.dropna(subset=ORIGINAL_FEATURES)
-
-            if st.button("🚀  Run Batch Prediction"):
-                X     = feat_df[ORIGINAL_FEATURES]
-                X_eng = engineer_features(X)
-                X_sc  = scaler.transform(X_eng)
-                X_sel = selector.transform(X_sc)
-
-                labels = model.predict(X_sel)
-                probas = model.predict_proba(X_sel)
-
-                results = batch_df.loc[feat_df.index].copy()
-                results["Prediction"]   = ["Parkinson's" if l == 1 else "Healthy" for l in labels]
-                results["PD_Risk_%"]    = (probas[:, 1] * 100).round(2)
-                results["Confidence_%"] = [round(probas[i, l] * 100, 2) for i, l in enumerate(labels)]
-                results["Risk_Level"]   = pd.cut(
-                    probas[:, 1], bins=[0, 0.3, 0.6, 1.0],
-                    labels=["Low", "Medium", "High"]
-                ).astype(str)
-
-                n_pd = (labels == 1).sum()
-                n_ht = (labels == 0).sum()
-                st.success(f"✅ Processed {len(results)} records")
-
-                m1, m2, m3, m4 = st.columns(4)
-                m1.metric("Total Patients", len(results))
-                m2.metric("PD Risk", n_pd, f"{n_pd/len(results)*100:.1f}%")
-                m3.metric("Healthy",  n_ht, f"{n_ht/len(results)*100:.1f}%")
-                m4.metric("Avg PD Risk", f"{(probas[:,1]*100).mean():.1f}%")
-
-                c1, c2 = st.columns(2)
-                with c1:
-                    fig_pie = px.pie(
-                        values=[n_pd, n_ht],
-                        names=["Parkinson's Risk", "Healthy"],
-                        color_discrete_sequence=["#DC2626", "#16A34A"],
-                        title="Prediction Distribution"
-                    )
-                    fig_pie.update_layout(height=260, paper_bgcolor="rgba(0,0,0,0)")
-                    st.plotly_chart(fig_pie, use_container_width=True)
-                with c2:
-                    fig_hist = px.histogram(
-                        x=probas[:, 1]*100, nbins=20,
-                        title="PD Risk Score Distribution",
-                        labels={"x": "PD Risk (%)"},
-                        color_discrete_sequence=["#16A34A"]
-                    )
-                    fig_hist.update_layout(height=260, paper_bgcolor="rgba(0,0,0,0)",
-                                           plot_bgcolor="rgba(0,0,0,0)")
-                    st.plotly_chart(fig_hist, use_container_width=True)
-
-                st.dataframe(results, use_container_width=True)
-                csv_out = results.to_csv(index=False).encode("utf-8")
-                st.download_button("📥  Download Results", csv_out,
-                                   "parkinsons_predictions.csv", "text/csv")
-
-        except Exception as e:
-            st.error(f"Error: {e}")
-            st.exception(e)
-
-# ══════════════════════════════════════════════════════════════════════════
-# TAB 3 — FEATURE EXPLORER (new tab)
-# ══════════════════════════════════════════════════════════════════════════
-with tab3:
-    st.markdown("### Feature Explorer — Understand the Voice Biomarkers")
-
-    try:
-        import os
-        df_raw = pd.read_csv(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "data", "raw", "parkinsons.data"
-        ))
-        df_raw = df_raw.drop(["name"], axis=1)
-
-        c1, c2 = st.columns(2)
-        with c1:
-            feat_x = st.selectbox("X-axis feature", ORIGINAL_FEATURES, index=21)  # PPE
-        with c2:
-            feat_y = st.selectbox("Y-axis feature", ORIGINAL_FEATURES, index=16)  # RPDE
-
-        df_raw["Diagnosis"] = df_raw["status"].map({1: "Parkinson's", 0: "Healthy"})
-        fig_sc = px.scatter(
-            df_raw, x=feat_x, y=feat_y, color="Diagnosis",
-            color_discrete_map={"Parkinson's": "#DC2626", "Healthy": "#16A34A"},
-            title=f"{feat_x} vs {feat_y} — PD vs Healthy",
-            opacity=0.7, marginal_x="histogram", marginal_y="histogram"
-        )
-        fig_sc.update_layout(height=480, paper_bgcolor="rgba(0,0,0,0)",
-                              plot_bgcolor="rgba(0,0,0,0)")
-        st.plotly_chart(fig_sc, use_container_width=True)
-
-        # Correlation with target
-        st.markdown("### Feature Correlation with Parkinson's Diagnosis")
-        corr = df_raw.drop(["Diagnosis"], axis=1).corr()["status"].drop("status").sort_values()
-        colors = ["#DC2626" if v > 0 else "#16A34A" for v in corr.values]
-        fig_corr = go.Figure(go.Bar(
-            x=corr.values, y=corr.index, orientation="h",
-            marker_color=colors
-        ))
-        fig_corr.add_vline(x=0, line_color="black", line_width=1)
-        fig_corr.update_layout(
-            height=500, title="Pearson Correlation with Parkinson's (status)",
-            xaxis_title="Correlation Coefficient",
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-            margin=dict(l=150)
-        )
-        st.plotly_chart(fig_corr, use_container_width=True)
-
-    except Exception as e:
-        st.warning(f"Feature explorer needs the raw dataset: {e}")
 
 # ── Footer ────────────────────────────────────────────────────────────────
 st.markdown("---")
