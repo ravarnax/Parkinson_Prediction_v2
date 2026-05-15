@@ -718,10 +718,21 @@ with tab3:
         )
         st.plotly_chart(fig_corr, use_container_width=True)
 
+        # ── Initialize Session State for the buttons ──
+        if "show_learning_curve" not in st.session_state:
+            st.session_state.show_learning_curve = False
+        if "show_confusion_matrix" not in st.session_state:
+            st.session_state.show_confusion_matrix = False
+
         st.markdown("---")
         st.markdown("### Model Generalization (Learning Curve)")
         
+        # Button updates the session state
         if st.button("📈 Generate Learning Curve"):
+            st.session_state.show_learning_curve = True
+
+        # Check the session state instead of the button directly
+        if st.session_state.show_learning_curve:
             with st.spinner("Training multiple sub-models to check for overfitting..."):
                 from sklearn.model_selection import learning_curve
                 
@@ -736,7 +747,7 @@ with tab3:
                     train_sizes=np.linspace(0.1, 1.0, 5), n_jobs=-1
                 )
                 
-                # Calculate means and standard deviation
+                # Calculate means
                 train_mean = np.mean(train_scores, axis=1) * 100
                 test_mean = np.mean(test_scores, axis=1) * 100
                 
@@ -759,6 +770,7 @@ with tab3:
                 
                 st.info("💡 **Interpretation:** If the Green line is close to the Red line at the end, your model has **Generalized well** and is not overfitted.")
 
+
         st.markdown("---")
         st.markdown("### Diagnostic Accuracy (Confusion Matrix)")
         st.markdown(
@@ -766,7 +778,12 @@ with tab3:
             "In medical screening, we care most about minimizing **False Negatives** (missing a sick patient)."
         )
 
+        # Button updates the session state
         if st.button("🧮 Generate Confusion Matrix"):
+            st.session_state.show_confusion_matrix = True
+
+        # Check the session state instead of the button directly
+        if st.session_state.show_confusion_matrix:
             with st.spinner("Calculating out-of-fold predictions..."):
                 from sklearn.metrics import confusion_matrix
                 from sklearn.model_selection import cross_val_predict
