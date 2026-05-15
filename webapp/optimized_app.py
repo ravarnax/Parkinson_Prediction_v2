@@ -132,8 +132,8 @@ html,body,[class*="css"]{font-family:'Inter',sans-serif;}
 }
 
 /* ── Result boxes ── */
-.result-pd{background:rgba(220,38,38,0.1);border:2px solid #DC2626;border-radius:12px;padding:1.2rem}
-.result-healthy{background:rgba(22,163,74,0.1);border:2px solid #16A34A;border-radius:12px;padding:1.2rem}
+.result-pd{background:rgba(220,38,38,0.1);border:2px solid #DC2626;border-radius:12px;padding:1.2rem;color:white}
+.result-healthy{background:rgba(22,163,74,0.1);border:2px solid #16A34A;border-radius:12px;padding:1.2rem;color:white}
 
 /* ── Tip box ── */
 .tip-box{background:rgba(217,119,6,0.1);border-left:4px solid #D97706;
@@ -485,43 +485,47 @@ with tab1:
             col_msg, col_gauge = st.columns([1.3, 1])
 
             with col_msg:
+                # Use a container div with 'margin: auto' or flex centering to align with the gauge
                 if label == 1:
-                    st.markdown('\n'.join([line.lstrip() for line in f"""
-                    <div class="result-pd" style="padding:1rem; height:100%; display:flex; flex-direction:column; justify-content:center; margin-top:10px;">
-                        <div style="font-size:1.15rem;font-weight:700;color:#991B1B;margin-bottom:.3rem">
-                            ⚠️ POSITIVE — Parkinson's Risk Detected
+                    st.markdown(f"""
+                    <div style="display: flex; flex-direction: column; justify-content: center; height: 250px;">
+                        <div class="result-pd" style="padding:1.5rem; color: white;">
+                            <div style="font-size:1.25rem; font-weight:700; color:#ffffff; margin-bottom:.5rem">
+                                ⚠️ POSITIVE — Parkinson's Risk Detected
+                            </div>
+                            <div style="font-size:1.1rem; color:#fecaca; line-height:1.6">
+                                PD Probability: <strong>{proba[1]*100:.1f}%</strong><br>
+                                Model Confidence: <strong>{proba[label]*100:.1f}%</strong>
+                            </div>
+                            <div style="margin-top:.8rem; font-size:.9rem; color:#f87171">
+                                ⚠️ Screening tool only — neurologist confirmation required.
+                            </div>
                         </div>
-                        <div style="font-size:1rem;color:#7F1D1D;line-height:1.5">
-                            PD Probability: <strong>{proba[1]*100:.1f}%</strong><br>
-                            Model Confidence: <strong>{proba[label]*100:.1f}%</strong>
-                        </div>
-                        <div style="margin-top:.4rem;font-size:.85rem;color:#991B1B">
-                            ⚠️ Screening tool only — neurologist confirmation required.
-                        </div>
-                    </div>""".split('\n')]), unsafe_allow_html=True)
+                    </div>""", unsafe_allow_html=True)
                 else:
-                    st.markdown('\n'.join([line.lstrip() for line in f"""
-                    <div class="result-healthy" style="padding:1rem; height:100%; display:flex; flex-direction:column; justify-content:center; margin-top:10px;">
-                        <div style="font-size:1.15rem;font-weight:700;color:#065F46;margin-bottom:.3rem">
-                            ✅ NEGATIVE — No Parkinson's Indicators
+                    st.markdown(f"""
+                    <div style="display: flex; flex-direction: column; justify-content: center; height: 250px;">
+                        <div class="result-healthy" style="padding:1.5rem; color: white;">
+                            <div style="font-size:1.25rem; font-weight:700; color:#ffffff; margin-bottom:.5rem">
+                                ✅ NEGATIVE — No Parkinson's Indicators
+                            </div>
+                            <div style="font-size:1.1rem; color:#bbf7d0; line-height:1.6">
+                                Healthy Probability: <strong>{proba[0]*100:.1f}%</strong><br>
+                                Model Confidence: <strong>{proba[label]*100:.1f}%</strong>
+                            </div>
+                            <div style="margin-top:.8rem; font-size:.9rem; color:#4ade80">
+                                Regular monitoring is still recommended for at-risk age groups.
+                            </div>
                         </div>
-                        <div style="font-size:1rem;color:#064E3B;line-height:1.5">
-                            Healthy Probability: <strong>{proba[0]*100:.1f}%</strong><br>
-                            Model Confidence: <strong>{proba[label]*100:.1f}%</strong>
-                        </div>
-                        <div style="margin-top:.4rem;font-size:.85rem;color:#065F46">
-                            Regular monitoring is still recommended for at-risk age groups.
-                        </div>
-                    </div>""".split('\n')]), unsafe_allow_html=True)
+                    </div>""", unsafe_allow_html=True)
 
             with col_gauge:
-                # GAUGE UPDATE: Increased font sizes and added bold weight
+                # Ensure the gauge height matches the height set in the col_msg div (250px)
                 fig_g = go.Figure(go.Indicator(
                     mode="gauge+number",
                     value=round(proba[1]*100, 1),
                     title={"text": "PD Risk", "font": {"size": 22, "color": "white", "weight": "bold"}},
                     number={"suffix": "%", "font": {"size": 48, "color": "white", "weight": "bold"}},
-                    domain={'x': [0, 1], 'y': [0, 1]},
                     gauge={
                         "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "white"},
                         "bar":  {"color": "#DC2626" if label == 1 else "#16A34A"},
@@ -533,11 +537,7 @@ with tab1:
                         "threshold": {"line": {"color":"white","width":3}, "value": 50}
                     }
                 ))
-                fig_g.update_layout(
-                    height=250, 
-                    margin=dict(l=25, r=25, t=50, b=25),
-                    paper_bgcolor="rgba(0,0,0,0)"
-                )
+                fig_g.update_layout(height=250, margin=dict(l=25, r=25, t=50, b=25), paper_bgcolor="rgba(0,0,0,0)")
                 st.plotly_chart(fig_g, use_container_width=True, config={'displayModeBar': False})
 
             st.markdown("<br>", unsafe_allow_html=True)
