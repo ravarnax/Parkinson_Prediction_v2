@@ -27,3 +27,6 @@ Thumbs.db
 
 # Processed data
 data/processed/
+
+parkinsons_150mb_test.csv
+*.csv
