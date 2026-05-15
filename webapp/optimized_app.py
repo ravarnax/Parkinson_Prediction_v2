@@ -577,6 +577,150 @@ with tab1:
             st.error(f"Prediction error: {e}")
             st.exception(e)
 
+# ══════════════════════════════════════════════════════════════════════════
+# TAB 2 — BATCH PREDICTION
+# ══════════════════════════════════════════════════════════════════════════
+with tab2:
+    st.markdown("### Batch Patient Processing")
+    st.markdown(
+        "Upload a CSV with all 22 MDVP feature columns. "
+        "`name` and `status` columns are ignored if present."
+    )
+    st.markdown(
+        '<div class="tip-box">💡 The model automatically computes 7 additional features '
+        'internally — you only need to provide the original 22.</div>',
+        unsafe_allow_html=True
+    )
+    st.markdown("")
+
+    uploaded = st.file_uploader("Choose a CSV file", type=["csv"])
+    if uploaded:
+        try:
+            batch_df = pd.read_csv(uploaded)
+            st.markdown(f"**Preview** — {len(batch_df)} rows × {len(batch_df.columns)} columns")
+            st.dataframe(batch_df.head(5), use_container_width=True)
+
+            feat_df = batch_df.copy()
+            for col in ["name", "status"]:
+                if col in feat_df.columns:
+                    feat_df = feat_df.drop(columns=[col])
+
+            missing = [f for f in ORIGINAL_FEATURES if f not in feat_df.columns]
+            if missing:
+                st.error(f"❌ Missing {len(missing)} columns:")
+                st.code("\n".join(missing))
+                st.stop()
+
+            feat_df = feat_df.dropna(subset=ORIGINAL_FEATURES)
+
+            if st.button("🚀  Run Batch Prediction"):
+                X     = feat_df[ORIGINAL_FEATURES]
+                X_eng = engineer_features(X)
+                X_sc  = scaler.transform(X_eng)
+                X_sel = selector.transform(X_sc)
+
+                labels = model.predict(X_sel)
+                probas = model.predict_proba(X_sel)
+
+                results = batch_df.loc[feat_df.index].copy()
+                results["Prediction"]   = ["Parkinson's" if l == 1 else "Healthy" for l in labels]
+                results["PD_Risk_%"]    = (probas[:, 1] * 100).round(2)
+                results["Confidence_%"] = [round(probas[i, l] * 100, 2) for i, l in enumerate(labels)]
+                results["Risk_Level"]   = pd.cut(
+                    probas[:, 1], bins=[0, 0.3, 0.6, 1.0],
+                    labels=["Low", "Medium", "High"]
+                ).astype(str)
+
+                n_pd = (labels == 1).sum()
+                n_ht = (labels == 0).sum()
+                st.success(f"✅ Processed {len(results)} records")
+
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric("Total Patients", len(results))
+                m2.metric("PD Risk", n_pd, f"{n_pd/len(results)*100:.1f}%")
+                m3.metric("Healthy",  n_ht, f"{n_ht/len(results)*100:.1f}%")
+                m4.metric("Avg PD Risk", f"{(probas[:,1]*100).mean():.1f}%")
+
+                c1, c2 = st.columns(2)
+                with c1:
+                    fig_pie = px.pie(
+                        values=[n_pd, n_ht],
+                        names=["Parkinson's Risk", "Healthy"],
+                        color_discrete_sequence=["#DC2626", "#16A34A"],
+                        title="Prediction Distribution"
+                    )
+                    fig_pie.update_layout(height=260, paper_bgcolor="rgba(0,0,0,0)")
+                    st.plotly_chart(fig_pie, use_container_width=True)
+                with c2:
+                    fig_hist = px.histogram(
+                        x=probas[:, 1]*100, nbins=20,
+                        title="PD Risk Score Distribution",
+                        labels={"x": "PD Risk (%)"},
+                        color_discrete_sequence=["#16A34A"]
+                    )
+                    fig_hist.update_layout(height=260, paper_bgcolor="rgba(0,0,0,0)",
+                                           plot_bgcolor="rgba(0,0,0,0)")
+                    st.plotly_chart(fig_hist, use_container_width=True)
+
+                st.dataframe(results, use_container_width=True)
+                csv_out = results.to_csv(index=False).encode("utf-8")
+                st.download_button("📥  Download Results", csv_out,
+                                   "parkinsons_predictions.csv", "text/csv")
+
+        except Exception as e:
+            st.error(f"Error: {e}")
+            st.exception(e)
+
+# ══════════════════════════════════════════════════════════════════════════
+# TAB 3 — FEATURE EXPLORER (new tab)
+# ══════════════════════════════════════════════════════════════════════════
+with tab3:
+    st.markdown("### Feature Explorer — Understand the Voice Biomarkers")
+
+    try:
+        import os
+        df_raw = pd.read_csv(os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "data", "raw", "parkinsons.data"
+        ))
+        df_raw = df_raw.drop(["name"], axis=1)
+
+        c1, c2 = st.columns(2)
+        with c1:
+            feat_x = st.selectbox("X-axis feature", ORIGINAL_FEATURES, index=21)  # PPE
+        with c2:
+            feat_y = st.selectbox("Y-axis feature", ORIGINAL_FEATURES, index=16)  # RPDE
+
+        df_raw["Diagnosis"] = df_raw["status"].map({1: "Parkinson's", 0: "Healthy"})
+        fig_sc = px.scatter(
+            df_raw, x=feat_x, y=feat_y, color="Diagnosis",
+            color_discrete_map={"Parkinson's": "#DC2626", "Healthy": "#16A34A"},
+            title=f"{feat_x} vs {feat_y} — PD vs Healthy",
+            opacity=0.7, marginal_x="histogram", marginal_y="histogram"
+        )
+        fig_sc.update_layout(height=480, paper_bgcolor="rgba(0,0,0,0)",
+                              plot_bgcolor="rgba(0,0,0,0)")
+        st.plotly_chart(fig_sc, use_container_width=True)
+
+        st.markdown("### Feature Correlation with Parkinson's Diagnosis")
+        corr = df_raw.drop(["Diagnosis"], axis=1).corr()["status"].drop("status").sort_values()
+        colors = ["#DC2626" if v > 0 else "#16A34A" for v in corr.values]
+        fig_corr = go.Figure(go.Bar(
+            x=corr.values, y=corr.index, orientation="h",
+            marker_color=colors
+        ))
+        fig_corr.add_vline(x=0, line_color="black", line_width=1)
+        fig_corr.update_layout(
+            height=500, title="Pearson Correlation with Parkinson's (status)",
+            xaxis_title="Correlation Coefficient",
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            margin=dict(l=150)
+        )
+        st.plotly_chart(fig_corr, use_container_width=True)
+
+    except Exception as e:
+        st.warning(f"Feature explorer needs the raw dataset: {e}")
+
 # ── Footer ────────────────────────────────────────────────────────────────
 st.markdown("---")
 st.markdown(
