@@ -10,11 +10,16 @@ import joblib
 import os, sys, json
 import plotly.graph_objects as go
 import plotly.express as px
+from fpdf import FPDF
+import datetime
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.config import (MODEL_PATH, SCALER_PATH, SELECTOR_PATH,
                         META_PATH, ORIGINAL_FEATURES, FEATURE_META)
 from src.preprocessing import engineer_features
+from src.audio_processing import process_audio_signal, validate_audio_properties, InvalidAudioError
+from src.extractor import extract_voice_features
+from src.predict import predict_from_voice
 
 # ── Page config ───────────────────────────────────────────────────────────
 st.set_page_config(
@@ -24,208 +29,146 @@ st.set_page_config(
 )
 
 st.markdown("""
+    <style>
+    /* Targeted fix for the white header/expander strip */
+    [data-testid="stExpander"] {
+        background-color: transparent !important;
+        border: none !important;
+    }
+    
+    /* If it's a specific container or header block */
+    .st-emotion-cache-p4m0d7 {
+        background-color: #0e1117 !important; /* Matches Streamlit dark background */
+    }
+
+    /* Optional: Remove the border/outline if that's the "strip" */
+    details {
+        border-radius: 10px !important;
+        background-color: #1a1c24 !important; /* Darker grey for contrast */
+        border: 1px solid #2e303d !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# ── UI Theme Variables (Permanent Dark Mode) ──────────────────────────────
+vars = {
+    "bg": "#0e1117",
+    "sidebar_bg": "#111b21",
+    "card_bg": "rgba(255,255,255,0.03)",
+    "header_grad": "linear-gradient(135deg,#0a0f0a 0%,#0d3321 60%,#16A34A 100%)",
+    "perf_grad": "linear-gradient(135deg, rgba(10,20,14,0.72) 0%, rgba(15,40,25,0.68) 50%, rgba(22,163,74,0.10) 100%)",
+    "text_main": "#ffffff",
+    "text_dim": "#86efac",
+    "section_bg": "#1e1e1e",
+    "section_border": "#2a2a2a",
+    "tooltip_bg": "rgba(30,58,138,0.08)",
+    "shadow": "0 8px 32px rgba(0,0,0,0.45)",
+    "chart_text": "#d1fae5",
+    "chart_grid": "rgba(74,222,128,0.08)",
+    "chart_bg": "rgba(255,255,255,0.02)",
+    "plotly_theme": "plotly_dark"
+}
+
+st.markdown(f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-html,body,[class*="css"]{font-family:'Inter',sans-serif;}
+:root {{
+    --bg-primary: {vars['bg']};
+    --card-bg: {vars['card_bg']};
+    --text-main: {vars['text_main']};
+    --text-dim: {vars['text_dim']};
+    --section-bg: {vars['section_bg']};
+    --section-border: {vars['section_border']};
+}}
+
+html,body,[class*="css"] {{ font-family:'Inter',sans-serif; }}
+
+/* ── Main App Background ── */
+.stApp {{
+    background-color: {vars['bg']};
+    color: {vars['text_main']};
+}}
+[data-testid="stSidebar"] {{
+    background-color: {vars['sidebar_bg']};
+}}
 
 /* ── Main header ── */
-.main-header{
-  background:linear-gradient(135deg,#0a0f0a 0%,#0d3321 60%,#16A34A 100%);
+.main-header{{
+  background:{vars['header_grad']};
   padding:1.8rem 2rem;border-radius:14px;margin-bottom:1.4rem;
-  border:1px solid #1a4a2e;}
-.main-header h1{color:#fff;margin:0;font-size:2rem;font-weight:700;letter-spacing:-.5px}
-.main-header p{color:#6ee7b7;margin:.4rem 0 0;font-size:.9rem}
+  border:1px solid #1a4a2e;
+  box-shadow: {vars['shadow']};}}
+.main-header h1{{color:#fff;margin:0;font-size:2rem;font-weight:700;letter-spacing:-.5px}}
+.main-header p{{color:#6ee7b7;margin:.4rem 0 0;font-size:.9rem}}
 
-/* ══════════════════════════════════════════════
-   GLASSMORPHISM PERFORMANCE HEADER
-══════════════════════════════════════════════ */
-.perf-header{
+/* ── Glassmorphism Performance Header ── */
+.perf-header{{
   position:relative;overflow:hidden;
-  background:linear-gradient(135deg,
-    rgba(10,20,14,0.72) 0%,
-    rgba(15,40,25,0.68) 50%,
-    rgba(22,163,74,0.10) 100%);
+  background:{vars['perf_grad']};
   border:1px solid rgba(74,222,128,0.18);
   border-radius:18px;
   padding:1.6rem 1.8rem 1.4rem;
   margin:1rem 0 1.4rem;
   backdrop-filter:blur(20px);
   -webkit-backdrop-filter:blur(20px);
-  box-shadow:0 8px 32px rgba(0,0,0,0.45),
-             inset 0 1px 0 rgba(255,255,255,0.06);}
-.perf-header::before{
-  content:'';
-  position:absolute;top:-60px;right:-60px;
-  width:220px;height:220px;
-  background:radial-gradient(circle,rgba(22,163,74,0.18) 0%,transparent 70%);
-  pointer-events:none;border-radius:50%;}
-.perf-header::after{
-  content:'';
-  position:absolute;bottom:-40px;left:10%;
-  width:160px;height:160px;
-  background:radial-gradient(circle,rgba(74,222,128,0.10) 0%,transparent 70%);
-  pointer-events:none;border-radius:50%;}
+  box-shadow:{vars['shadow']}, inset 0 1px 0 rgba(255,255,255,0.06);}}
 
-.perf-header-label{
+.perf-header-label{{
   font-size:.7rem;font-weight:700;
-  color:#6ee7b7;letter-spacing:1.5px;
+  color:{vars['text_dim']};letter-spacing:1.5px;
   text-transform:uppercase;margin-bottom:1rem;
-  display:flex;align-items:center;gap:8px;}
-.perf-header-label::after{
+  display:flex;align-items:center;gap:8px;}}
+.perf-header-label::after{{
   content:'';flex:1;
-  height:1px;background:linear-gradient(90deg,rgba(74,222,128,0.3),transparent);}
+  height:1px;background:linear-gradient(90deg,rgba(74,222,128,0.3),transparent);}}
 
-.perf-cards{
-  display:flex;gap:10px;flex-wrap:wrap;
-  position:relative;z-index:1;}
-
-.perf-card{
+.perf-cards{{ display:flex;gap:10px;flex-wrap:wrap;position:relative;z-index:1;}}
+.perf-card{{
   flex:1;min-width:130px;
-  background:rgba(255,255,255,0.03);
+  background:{vars['card_bg']};
   border:1px solid rgba(74,222,128,0.15);
   border-radius:14px;
   padding:1rem 1rem .85rem;
   text-align:center;
-  position:relative;overflow:hidden;
-  transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease;}
-.perf-card::before{
-  content:'';
-  position:absolute;top:0;left:-75%;
-  width:50%;height:100%;
-  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.06),transparent);
-  transition:left .45s ease;
-  pointer-events:none;}
-.perf-card:hover::before{left:130%;}
-.perf-card:hover{
+  transition:all .22s ease;}}
+.perf-card:hover{{
   transform:translateY(-4px);
-  box-shadow:0 8px 24px rgba(22,163,74,0.22);
-  border-color:rgba(74,222,128,0.35);}
+  box-shadow:0 8px 24px rgba(22,163,74,0.15);
+  border-color:rgba(74,222,128,0.35);}}
 
-.perf-card .pc-icon{
-  font-size:1.35rem;line-height:1;
-  margin-bottom:.4rem;display:block;}
-.perf-card .pc-val{
-  font-size:1.9rem;font-weight:800;
-  color:#4ade80;line-height:1.05;
-  letter-spacing:-.5px;}
-.perf-card .pc-lbl{
-  font-size:.68rem;color:#86efac;
-  margin-top:.35rem;text-transform:uppercase;
-  letter-spacing:.8px;font-weight:600;}
-.perf-card .pc-badge{
-  display:inline-block;margin-top:.45rem;
-  font-size:.62rem;font-weight:700;
-  padding:.15rem .55rem;
-  border-radius:20px;
-  background:rgba(22,163,74,0.15);
-  border:1px solid rgba(74,222,128,0.25);
-  color:#6ee7b7;letter-spacing:.4px;}
-.perf-card.star-card{
-  border-color:rgba(74,222,128,0.30);
-  background:rgba(22,163,74,0.07);}
-.perf-card.star-card .pc-val{color:#34d399;}
-
-/* Responsive */
-@media(max-width:640px){
-  .perf-cards{display:grid;grid-template-columns:1fr 1fr;}
-  .perf-card .pc-val{font-size:1.5rem;}
-}
+.perf-card .pc-val{{ font-size:1.9rem;font-weight:800;color:#16a34a;line-height:1.05; }}
+.perf-card .pc-lbl{{ font-size:.68rem;color:{vars['text_dim']};margin-top:.35rem;text-transform:uppercase;font-weight:600;}}
 
 /* ── Result boxes ── */
-.result-pd{background:rgba(220,38,38,0.1);border:2px solid #DC2626;border-radius:12px;padding:1.2rem;color:white}
-.result-healthy{background:rgba(22,163,74,0.1);border:2px solid #16A34A;border-radius:12px;padding:1.2rem;color:white}
+.result-pd{{background:rgba(220,38,38,0.1);border:2px solid #DC2626;border-radius:12px;padding:1.2rem;color:{vars['text_main']}}}
+.result-warning{{background:rgba(234,179,8,0.1);border:2px solid #EAB308;border-radius:12px;padding:1.2rem;color:{vars['text_main']}}}
+.result-healthy{{background:rgba(22,163,74,0.1);border:2px solid #16A34A;border-radius:12px;padding:1.2rem;color:{vars['text_main']}}}
 
-/* ── Tip box ── */
-.tip-box{background:rgba(217,119,6,0.1);border-left:4px solid #D97706;
-  border-radius:6px;padding:.7rem 1rem;font-size:.87rem;color:#fbbf24}
 
-/* ── Predict button ── */
-.stButton>button{
-  background:linear-gradient(135deg,#059669,#16A34A);
-  color:#fff;border:none;
-  padding:.75rem 3rem;border-radius:8px;
-  font-size:1.05rem;font-weight:700;
-  box-shadow:0 0 16px rgba(16,163,74,0.45);
-  transition:all .25s ease;width:100%;margin-top:.8rem;}
-.stButton>button:hover{
-  background:linear-gradient(135deg,#047857,#15803d);
-  box-shadow:0 0 28px rgba(16,163,74,0.7);
-  transform:translateY(-2px);}
-.stButton>button:active{transform:translateY(0);}
-
-/* ══════════════════════════════════════════════
-   SECTIONAL FEATURE CARDS  (Tab 1)
-══════════════════════════════════════════════ */
-.section-card{
-  background:#1e1e1e;
-  border:1px solid #2a2a2a;
+/* ── Sectional Feature Cards ── */
+.section-card{{
+  background:{vars['section_bg']};
+  border:1px solid {vars['section_border']};
   border-radius:14px;
   padding:1.4rem 1.6rem 1rem;
   margin-bottom:1.4rem;
-  box-shadow:0 2px 12px rgba(0,0,0,0.35);
-  transition:box-shadow .25s;}
-.section-card:hover{
-  box-shadow:0 4px 24px rgba(22,163,74,0.12);}
+  box-shadow:{vars['shadow']};}}
+.section-card-title{{
+  display:flex;align-items:center;gap:10px;font-size:1.05rem;font-weight:700;
+  color:#16a34a;padding-bottom:.65rem;margin-bottom:.9rem;
+  border-bottom:1px solid {vars['section_border']};}}
+.section-card-desc{{
+  font-size:.8rem;color:#64748b;margin:-0.5rem 0 .9rem;
+  padding:.4rem .75rem;background:{vars['tooltip_bg']};
+  border-left:3px solid #16A34A;border-radius:0 6px 6px 0;}}
 
-.section-card-title{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  font-size:1.05rem;
-  font-weight:700;
-  color:#4ade80;
-  padding-bottom:.65rem;
-  margin-bottom:.9rem;
-  border-bottom:1px solid #2d2d2d;}
-.section-card-icon{
-  font-size:1.3rem;
-  line-height:1;}
-.section-card-badge{
-  margin-left:auto;
-  font-size:.7rem;
-  font-weight:600;
-  color:#6ee7b7;
-  background:rgba(22,163,74,0.12);
-  border:1px solid rgba(22,163,74,0.25);
-  border-radius:20px;
-  padding:.15rem .65rem;
-  letter-spacing:.4px;
-  text-transform:uppercase;
-  white-space: nowrap; 
-  flex-shrink: 0;}
-.section-card-desc{
-  font-size:.8rem;
-  color:#6b7280;
-  margin:-0.5rem 0 .9rem;
-  padding:.4rem .75rem;
-  background:rgba(74,222,128,0.04);
-  border-left:3px solid #16A34A;
-  border-radius:0 6px 6px 0;}
-
-/* ── Medical tooltip details ── */
-.med-tooltip{
+/* ── Medical tooltip ── */
+.med-tooltip{{
   margin:.5rem 0 .9rem;
-  background:rgba(30,58,138,0.08);
+  background:{vars['tooltip_bg']};
   border:1px solid rgba(99,102,241,0.18);
-  border-radius:10px;
-  padding:.75rem 1rem;
-  font-size:.82rem;
-  color:#a5b4fc;}
-.med-tooltip summary{
-  cursor:pointer;
-  font-weight:700;
-  color:#818cf8;
-  list-style:none;
-  display:flex;
-  align-items:center;
-  gap:7px;
-  user-select:none;}
-.med-tooltip summary::marker{display:none;}
-.med-tooltip summary::-webkit-details-marker{display:none;}
-.med-tooltip[open] summary{margin-bottom:.55rem;}
-.med-tooltip dl{margin:.2rem 0 0;display:grid;grid-template-columns:auto 1fr;gap:.25rem .75rem;}
-.med-tooltip dt{color:#c7d2fe;font-weight:700;white-space:nowrap;}
-.med-tooltip dd{margin:0;color:#94a3b8;line-height:1.5;}
+  border-radius:10px;padding:.75rem 1rem;font-size:.82rem;color:#475569;}}
+.med-tooltip summary{{ cursor:pointer;font-weight:700;color:#2563eb;display:flex;align-items:center;gap:7px;}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -239,6 +182,78 @@ def load_artifacts():
     selector = joblib.load(SELECTOR_PATH)
     meta     = json.load(open(META_PATH)) if os.path.exists(META_PATH) else {}
     return model, scaler, selector, meta
+
+def generate_report(results, probability):
+    """Generate a professional PDF screening report."""
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # Header
+    pdf.set_font("Helvetica", 'B', 16)
+    pdf.cell(0, 10, "Parkinson's Disease Screening Report", ln=True, align='C')
+    pdf.ln(5)
+    pdf.set_font("Helvetica", size=10)
+    pdf.cell(0, 10, "Early Detection via Acoustic Biomarkers & Voting Ensemble", ln=True, align='C')
+    pdf.line(10, 35, 200, 35)
+    pdf.ln(10)
+    
+    # Metadata
+    pdf.set_font("Helvetica", size=11)
+    pdf.cell(100, 10, f"Date of Screening: {datetime.date.today()}", ln=False)
+    pdf.cell(0, 10, f"Report ID: PD-{datetime.datetime.now().strftime('%Y%m%d%H%M')}", ln=True, align='R')
+    pdf.ln(5)
+    
+    # Results Section
+    pdf.set_font("Helvetica", 'B', 12)
+    pdf.set_fill_color(240, 240, 240)
+    pdf.cell(0, 10, " DIAGNOSTIC SUMMARY", ln=True, fill=True)
+    pdf.set_font("Helvetica", size=11)
+    pdf.ln(2)
+    
+    result_text = "POSITIVE - Indicators of Parkinson's Disease Detected" if probability > 50 else "NEGATIVE - No Significant Parkinson's Indicators"
+    pdf.cell(50, 10, "Result:", ln=False)
+    pdf.set_font("Helvetica", 'B', 11)
+    pdf.cell(0, 10, result_text, ln=True)
+    
+    pdf.set_font("Helvetica", size=11)
+    pdf.cell(50, 10, "PD Risk Probability:", ln=False)
+    pdf.cell(0, 10, f"{probability:.2f}%", ln=True)
+    
+    pdf.cell(50, 10, "Model Confidence:", ln=False)
+    pdf.cell(0, 10, f"{max(probability, 100-probability):.2f}%", ln=True)
+    
+    pdf.ln(10)
+    
+    # Features Section (Optional inclusion of some key features)
+    pdf.set_font("Helvetica", 'B', 12)
+    pdf.cell(0, 10, " KEY BIOMARKERS ANALYSED", ln=True, fill=True)
+    pdf.ln(2)
+    pdf.set_font("Helvetica", size=10)
+    
+    # We'll just list a few most important ones if they are in results
+    key_metrics = ["PPE", "spread1", "MDVP:Fo(Hz)", "HNR", "DFA", "RPDE"]
+    for m in key_metrics:
+        if m in results:
+            val = results[m]
+            pdf.cell(60, 8, f"{m}:", ln=False)
+            pdf.cell(0, 8, f"{val:.5f}", ln=True)
+    
+    pdf.ln(15)
+    
+    # Footer / Disclaimer
+    pdf.set_font("Helvetica", 'I', 9)
+    pdf.multi_cell(0, 5, "DISCLAIMER: This report is generated by an automated screening tool developed for research purposes. "
+                       "It does NOT constitute a clinical diagnosis. Please consult a qualified neurologist for a comprehensive medical evaluation.")
+    
+    pdf.ln(10)
+    # pdf.set_font("Helvetica", 'B', 10)
+    # pdf.cell(0, 10, "Academic Credentials:", ln=True)
+    # pdf.set_font("Helvetica", size=9)
+    # pdf.cell(0, 5, "Lead Developer: Shivam Kothiyal (MCA Final Year)", ln=True)
+    # pdf.cell(0, 5, "Department of CS & IT, H.N.B. Garhwal University", ln=True)
+    # pdf.cell(0, 5, "Under the guidance of Prof. Y.P. Raiwani", ln=True)
+
+    return bytes(pdf.output())
 
 model, scaler, selector, meta = load_artifacts()
 if model is None:
@@ -322,11 +337,13 @@ with st.expander("📊 Model Performance Dashboard", expanded=True):
         fig.update_layout(
             barmode="group", height=260, title="Before vs After Improvements",
             yaxis=dict(range=[85, 100]), margin=dict(l=0,r=0,t=35,b=0),
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
             legend=dict(orientation="h", y=1.1),
-            font=dict(color="#d1fae5")
+            font=dict(color=vars["chart_text"]),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor=vars["chart_bg"],
+            template=vars["plotly_theme"]
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=None)
     with i3:
         fi_features = [
             "PPE", "spread1", "MDVP:Fo(Hz)", "HNR",
@@ -348,27 +365,29 @@ with st.expander("📊 Model Performance Dashboard", expanded=True):
             hovertemplate="<b>%{y}</b><br>MI Score: %{x:.3f}<extra></extra>",
         ))
         fig_fi.update_layout(
-            title=dict(text="🏆 Top 10 Feature Importance", font=dict(size=13, color="#4ade80")),
+            title=dict(text="🏆 Top 10 Feature Importance", font=dict(size=13, color="#16a34a")),
             height=305, margin=dict(l=0, r=55, t=35, b=10),
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(255,255,255,0.02)",
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor=vars["chart_bg"],
+            template=vars["plotly_theme"],
             xaxis=dict(
-                title=dict(text="Mutual Information Score", font=dict(size=10, color="#86efac")),
-                tickfont=dict(size=9, color="#86efac"),
-                gridcolor="rgba(74,222,128,0.08)",
+                title=dict(text="Mutual Information Score", font=dict(size=10, color=vars["text_dim"])),
+                tickfont=dict(size=9, color=vars["text_dim"]),
+                gridcolor=vars["chart_grid"],
                 range=[0, max(fi_scores) * 1.22],
             ),
-            yaxis=dict(tickfont=dict(size=10, color="#d1fae5"), gridcolor="rgba(0,0,0,0)"),
+            yaxis=dict(tickfont=dict(size=10, color=vars["chart_text"]), gridcolor="rgba(0,0,0,0)"),
             bargap=0.28,
         )
-        st.plotly_chart(fig_fi, use_container_width=True)
+        st.plotly_chart(fig_fi, use_container_width=None)
 
 st.markdown("---")
 
 # ── Tabs ──────────────────────────────────────────────────────────────────
-tab1, tab2, tab3 = st.tabs([
+tab1, tab2, tab3, tab4 = st.tabs([
     "👤  Single Patient Prediction",
     "📂  Batch Processing (CSV)",
-    "📈  Feature Explorer"
+    "📈  Feature Explorer",
+    "🎤  Live Voice Diagnostic"
 ])
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -485,60 +504,65 @@ with tab1:
             col_msg, col_gauge = st.columns([1.3, 1])
 
             with col_msg:
-                # Use a container div with 'margin: auto' or flex centering to align with the gauge
-                if label == 1:
-                    st.markdown(f"""
-                    <div style="display: flex; flex-direction: column; justify-content: center; height: 250px;">
-                        <div class="result-pd" style="padding:1.5rem; color: white;">
-                            <div style="font-size:1.25rem; font-weight:700; color:#ffffff; margin-bottom:.5rem">
-                                ⚠️ POSITIVE — Parkinson's Risk Detected
-                            </div>
-                            <div style="font-size:1.1rem; color:#fecaca; line-height:1.6">
-                                PD Probability: <strong>{proba[1]*100:.1f}%</strong><br>
-                                Model Confidence: <strong>{proba[label]*100:.1f}%</strong>
-                            </div>
-                            <div style="margin-top:.8rem; font-size:.9rem; color:#f87171">
-                                ⚠️ Screening tool only — neurologist confirmation required.
-                            </div>
-                        </div>
-                    </div>""", unsafe_allow_html=True)
+                p_score = proba[1] * 100
+                if p_score > 75:
+                    res_class = "result-pd"
+                    title_html = "⚠️ HIGH RISK — Parkinson's Indicators Detected"
+                    val_color = "#fecaca"
+                    warn_color = "#f87171"
+                    warn_msg = "⚠️ High probability. Neurologist confirmation strongly recommended."
+                    bar_color = "#DC2626"
+                elif p_score >= 60:
+                    res_class = "result-warning"
+                    title_html = "🟡 MEDIUM RISK — Borderline Indicators Detected"
+                    val_color = "#fef08a"
+                    warn_color = "#fde047"
+                    warn_msg = "🟡 Borderline results. Consider clinical evaluation."
+                    bar_color = "#EAB308"
                 else:
-                    st.markdown(f"""
-                    <div style="display: flex; flex-direction: column; justify-content: center; height: 250px;">
-                        <div class="result-healthy" style="padding:1.5rem; color: white;">
-                            <div style="font-size:1.25rem; font-weight:700; color:#ffffff; margin-bottom:.5rem">
-                                ✅ NEGATIVE — No Parkinson's Indicators
-                            </div>
-                            <div style="font-size:1.1rem; color:#bbf7d0; line-height:1.6">
-                                Healthy Probability: <strong>{proba[0]*100:.1f}%</strong><br>
-                                Model Confidence: <strong>{proba[label]*100:.1f}%</strong>
-                            </div>
-                            <div style="margin-top:.8rem; font-size:.9rem; color:#4ade80">
-                                Regular monitoring is still recommended for at-risk age groups.
-                            </div>
+                    res_class = "result-healthy"
+                    title_html = "✅ LOW RISK — No Significant Indicators"
+                    val_color = "#bbf7d0"
+                    warn_color = "#4ade80"
+                    warn_msg = "✅ Regular monitoring is still recommended for at-risk age groups."
+                    bar_color = "#16A34A"
+
+                st.markdown(f"""
+                <div style="display: flex; flex-direction: column; justify-content: center; height: 250px;">
+                    <div class="{res_class}" style="padding:1.5rem; color: white;">
+                        <div style="font-size:1.25rem; font-weight:700; color:#ffffff; margin-bottom:.5rem">
+                            {title_html}
                         </div>
-                    </div>""", unsafe_allow_html=True)
+                        <div style="font-size:1.1rem; color:{val_color}; line-height:1.6">
+                            PD Risk Probability: <strong>{p_score:.1f}%</strong><br>
+                            Model Confidence: <strong>{max(proba)*100:.1f}%</strong>
+                        </div>
+                        <div style="margin-top:.8rem; font-size:.9rem; color:{warn_color}">
+                            {warn_msg}
+                        </div>
+                    </div>
+                </div>""", unsafe_allow_html=True)
 
             with col_gauge:
                 # Ensure the gauge height matches the height set in the col_msg div (250px)
                 fig_g = go.Figure(go.Indicator(
                     mode="gauge+number",
-                    value=round(proba[1]*100, 1),
+                    value=round(p_score, 1),
                     title={"text": "PD Risk", "font": {"size": 22, "color": "white", "weight": "bold"}},
                     number={"suffix": "%", "font": {"size": 48, "color": "white", "weight": "bold"}},
                     gauge={
                         "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "white"},
-                        "bar":  {"color": "#DC2626" if label == 1 else "#16A34A"},
+                        "bar":  {"color": bar_color},
                         "steps": [
-                            {"range": [0,  40], "color": "#DCFCE7"},
-                            {"range": [40, 70], "color": "#FEF9C3"},
-                            {"range": [70,100], "color": "#FEE2E2"},
+                            {"range": [0,  60], "color": "#DCFCE7"},
+                            {"range": [60, 75], "color": "#FEF9C3"},
+                            {"range": [75,100], "color": "#FEE2E2"},
                         ],
-                        "threshold": {"line": {"color":"white","width":3}, "value": 50}
+                        "threshold": {"line": {"color":"white","width":3}, "value": p_score}
                     }
                 ))
                 fig_g.update_layout(height=250, margin=dict(l=25, r=25, t=50, b=25), paper_bgcolor="rgba(0,0,0,0)")
-                st.plotly_chart(fig_g, use_container_width=True, config={'displayModeBar': False})
+                st.plotly_chart(fig_g, use_container_width=None, config={'displayModeBar': False})
 
             st.markdown("<br>", unsafe_allow_html=True)
 
@@ -554,7 +578,7 @@ with tab1:
                     "Jitter_total"       : round(feature_values["MDVP:Jitter(%)"] + feature_values["MDVP:RAP"] + feature_values["MDVP:PPQ"], 6),
                 }
                 st.dataframe(pd.DataFrame(derived, index=["Value"]).T.rename(columns={"Value":"Computed"}),
-                             use_container_width=True)
+                             use_container_width=None)
 
             with col_tbl2:
                 st.markdown("**Patient vs. healthy population:**")
@@ -571,7 +595,18 @@ with tab1:
                     "Baseline Max": healthy_hi,
                     "Status"   : flag,
                 })
-                st.dataframe(df_cmp, use_container_width=True, hide_index=True)
+                st.dataframe(df_cmp, use_container_width=None, hide_index=True)
+
+            # ── Generate PDF Report ──
+            st.markdown("<br>", unsafe_allow_html=True)
+            report_bytes = generate_report(feature_values, proba[1]*100)
+            st.download_button(
+                label="📥 Download Clinical Screening Report (PDF)",
+                data=report_bytes,
+                file_name=f"Parkinsons_Report_{datetime.date.today()}.pdf",
+                mime="application/pdf",
+                use_container_width=None
+            )
 
         except Exception as e:
             st.error(f"Prediction error: {e}")
@@ -598,7 +633,7 @@ with tab2:
         try:
             batch_df = pd.read_csv(uploaded)
             st.markdown(f"**Preview** — {len(batch_df)} rows × {len(batch_df.columns)} columns")
-            st.dataframe(batch_df.head(5), use_container_width=True)
+            st.dataframe(batch_df.head(5), use_container_width=None)
 
             feat_df = batch_df.copy()
             for col in ["name", "status"]:
@@ -650,7 +685,7 @@ with tab2:
                         title="Prediction Distribution"
                     )
                     fig_pie.update_layout(height=260, paper_bgcolor="rgba(0,0,0,0)")
-                    st.plotly_chart(fig_pie, use_container_width=True)
+                    st.plotly_chart(fig_pie, use_container_width=None)
                 with c2:
                     fig_hist = px.histogram(
                         x=probas[:, 1]*100, nbins=20,
@@ -660,9 +695,9 @@ with tab2:
                     )
                     fig_hist.update_layout(height=260, paper_bgcolor="rgba(0,0,0,0)",
                                            plot_bgcolor="rgba(0,0,0,0)")
-                    st.plotly_chart(fig_hist, use_container_width=True)
+                    st.plotly_chart(fig_hist, use_container_width=None)
 
-                st.dataframe(results, use_container_width=True)
+                st.dataframe(results, use_container_width=None)
                 csv_out = results.to_csv(index=False).encode("utf-8")
                 st.download_button("📥  Download Results", csv_out,
                                    "parkinsons_predictions.csv", "text/csv")
@@ -700,7 +735,7 @@ with tab3:
         )
         fig_sc.update_layout(height=480, paper_bgcolor="rgba(0,0,0,0)",
                               plot_bgcolor="rgba(0,0,0,0)")
-        st.plotly_chart(fig_sc, use_container_width=True)
+        st.plotly_chart(fig_sc, use_container_width=None)
 
         st.markdown("### Feature Correlation with Parkinson's Diagnosis")
         corr = df_raw.drop(["Diagnosis"], axis=1).corr()["status"].drop("status").sort_values()
@@ -716,7 +751,7 @@ with tab3:
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
             margin=dict(l=150)
         )
-        st.plotly_chart(fig_corr, use_container_width=True)
+        st.plotly_chart(fig_corr, use_container_width=None)
 
         # ── Initialize Session State for the buttons ──
         if "show_learning_curve" not in st.session_state:
@@ -761,12 +796,15 @@ with tab3:
                     title="Learning Curve: Training vs. Validation",
                     xaxis_title="Number of Training Samples",
                     yaxis_title="Accuracy (%)",
-                    yaxis=dict(range=[80, 101]),
+                    yaxis=dict(range=[80, 101], gridcolor=vars["chart_grid"]),
+                    xaxis=dict(gridcolor=vars["chart_grid"]),
+                    font=dict(color=vars["chart_text"]),
                     paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(255,255,255,0.02)",
-                    legend=dict(orientation="h", y=-0.2)
+                    plot_bgcolor=vars["chart_bg"],
+                    legend=dict(orientation="h", y=-0.2),
+                    template=vars["plotly_theme"]
                 )
-                st.plotly_chart(fig_lc, use_container_width=True)
+                st.plotly_chart(fig_lc, use_container_width=None)
                 
                 st.info("💡 **Interpretation:** If the Green line is close to the Red line at the end, your model has **Generalized well** and is not overfitted.")
 
@@ -802,7 +840,7 @@ with tab3:
                 fig_cm = px.imshow(
                     cm, 
                     text_auto=True, 
-                    color_continuous_scale=[[0, "#1e1e1e"], [1, "#DC2626"]], 
+                    color_continuous_scale=[[0, vars["section_bg"]], [1, "#DC2626"]], 
                     labels=dict(x="Model Prediction", y="Actual Clinical Diagnosis", color="Patients"),
                     x=["Predicted Healthy", "Predicted Parkinson's"],
                     y=["Actual Healthy", "Actual Parkinson's"]
@@ -813,7 +851,8 @@ with tab3:
                     height=450,
                     paper_bgcolor="rgba(0,0,0,0)",
                     plot_bgcolor="rgba(0,0,0,0)",
-                    font=dict(color="#d1fae5")
+                    font=dict(color=vars["chart_text"]),
+                    template=vars["plotly_theme"]
                 )
                 
                 # Make the numbers inside the matrix large and readable
@@ -822,7 +861,7 @@ with tab3:
                 # Display the matrix alongside a clinical breakdown
                 col1, col2 = st.columns([1.5, 1])
                 with col1:
-                    st.plotly_chart(fig_cm, use_container_width=True)
+                    st.plotly_chart(fig_cm, use_container_width=None)
                 with col2:
                     st.markdown("<br><br>", unsafe_allow_html=True)
                     st.markdown(f"**✅ True Positives (Caught PD):** {cm[1][1]}")
@@ -833,10 +872,390 @@ with tab3:
     except Exception as e:
         st.warning(f"Feature explorer needs the raw dataset: {e}")
 
+# ══════════════════════════════════════════════════════════════════════════
+# TAB 4 — LIVE VOICE DIAGNOSTIC
+# ══════════════════════════════════════════════════════════════════════════
+with tab4:
+    st.markdown("### 🎤 Live Voice Diagnostic")
+
+    # ── Clinical Disclaimer (high-visibility) ─────────────────────────
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, rgba(234,179,8,0.08), rgba(234,179,8,0.02));
+        border: 1px solid rgba(234,179,8,0.35);
+        border-left: 4px solid #EAB308;
+        border-radius: 12px;
+        padding: 1.2rem 1.4rem;
+        margin-bottom: 1.5rem;
+        color: {vars['text_main']};
+    ">
+        <div style="font-weight:700; font-size:1rem; color:#EAB308; margin-bottom:.6rem;
+                    display:flex; align-items:center; gap:8px;">
+            ⚠️ Important Clinical Disclaimer
+        </div>
+        <div style="font-size:.88rem; line-height:1.7; color:{vars['text_dim']};">
+            <b>1.</b> This tool is an <b>educational screening aid</b>, not a certified medical diagnostic device.
+            Any result must be confirmed by a qualified neurologist.<br>
+            <b>2.</b> Recording quality directly impacts accuracy. Consumer-grade laptop microphones
+            introduce noise artefacts that can inflate jitter/shimmer readings, potentially
+            producing <b>false positives</b>. Clinical-grade recordings use condenser microphones
+            in sound-treated rooms.<br>
+            <b>3.</b> Your voice recording is processed <b>in-memory only</b> and the temporary file
+            is <b>permanently deleted</b> from the server immediately after analysis completes.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Patient Instruction Card ──────────────────────────────────────
+    st.markdown(f"""
+    <div class="section-card">
+        <div class="section-card-title">
+            <span>📋</span> Recording Protocol
+        </div>
+        <div style="display:flex; flex-direction:column; gap:14px; margin-top:.5rem;">
+            <div style="display:flex; align-items:center; gap:14px; font-size:.95rem; color:{vars['text_main']};">
+                <div style="background:#16a34a; color:white; width:30px; height:30px;
+                            border-radius:50%; display:flex; align-items:center;
+                            justify-content:center; font-weight:700; flex-shrink:0;">1</div>
+                <div>Sit in a <b>quiet room</b> with minimal background noise.</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:14px; font-size:.95rem; color:{vars['text_main']};">
+                <div style="background:#16a34a; color:white; width:30px; height:30px;
+                            border-radius:50%; display:flex; align-items:center;
+                            justify-content:center; font-weight:700; flex-shrink:0;">2</div>
+                <div>Hold your microphone approximately <b>6 inches (15 cm)</b> from your mouth.</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:14px; font-size:.95rem; color:{vars['text_main']};">
+                <div style="background:#16a34a; color:white; width:30px; height:30px;
+                            border-radius:50%; display:flex; align-items:center;
+                            justify-content:center; font-weight:700; flex-shrink:0;">3</div>
+                <div>Take a deep breath and sustain a clear <b>"Ahhh"</b> sound for at least <b>5 seconds</b>.</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Audio Recorder ────────────────────────────────────────────────
+    audio_sample = st.audio_input(
+        "🎙️ Click the microphone to start recording your voice sample",
+        key="voice_diagnostic_recorder"
+    )
+
+    if audio_sample:
+        st.audio(audio_sample)
+        st.markdown(f"""
+        <div style="font-size:.85rem; color:{vars['text_dim']}; margin:.5rem 0 1rem;
+                    display:flex; align-items:center; gap:6px;">
+            ✅ Audio captured: <b>{audio_sample.size / 1024:.1f} KB</b> |
+            Format: <b>{audio_sample.type}</b>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if st.button("🚀  Analyse Voice Sample", type="primary", key="run_voice_analysis"):
+            wav_path = None  # Track for guaranteed cleanup
+            try:
+                # ── Stage 1: Audio Standardization ────────────────
+                with st.spinner("⏳ Stage 1/3 — Standardizing audio signal (44.1 kHz, 16-bit mono)..."):
+                    wav_path = process_audio_signal(audio_sample)
+
+                # ── Stage 2: Praat Feature Extraction ─────────────
+                with st.spinner("🔬 Stage 2/3 — Extracting 22 clinical voice biomarkers via Praat..."):
+                    features = extract_voice_features(wav_path)
+
+                # ── Stage 3: ML Inference ─────────────────────────
+                with st.spinner("🧠 Stage 3/3 — Running Voting Ensemble inference..."):
+                    result = predict_from_voice(features)
+
+                # ── Display Results ───────────────────────────────
+                st.markdown("---")
+                st.markdown("### Diagnostic Results")
+
+                col_result, col_gauge = st.columns([1.3, 1])
+
+                with col_result:
+                    p_score = result['pd_probability'] * 100
+                    if p_score > 75:
+                        res_class = "result-pd"
+                        title_html = "⚠️ HIGH RISK — Parkinson's Indicators Detected"
+                        val_color = "#fecaca"
+                        warn_color = "#f87171"
+                        warn_msg = "⚠️ High probability. Consumer microphone recording — neurologist confirmation required."
+                        bar_color = "#DC2626"
+                    elif p_score >= 60:
+                        res_class = "result-warning"
+                        title_html = "🟡 MEDIUM RISK — Borderline Indicators Detected"
+                        val_color = "#fef08a"
+                        warn_color = "#fde047"
+                        warn_msg = "🟡 Borderline results. Consumer microphone recording — consider clinical evaluation."
+                        bar_color = "#EAB308"
+                    else:
+                        res_class = "result-healthy"
+                        title_html = "✅ LOW RISK — No Significant Indicators"
+                        val_color = "#bbf7d0"
+                        warn_color = "#4ade80"
+                        warn_msg = "✅ Regular monitoring is still recommended for at-risk age groups."
+                        bar_color = "#16A34A"
+
+                    st.markdown(f"""
+                    <div style="display:flex; flex-direction:column; justify-content:center; height:260px;">
+                        <div class="{res_class}" style="padding:1.5rem;">
+                            <div style="font-size:1.25rem; font-weight:700; color:#ffffff; margin-bottom:.5rem">
+                                {title_html}
+                            </div>
+                            <div style="font-size:1.05rem; color:{val_color}; line-height:1.7">
+                                PD Risk Probability: <strong>{p_score:.1f}%</strong><br>
+                                Model Confidence: <strong>{result['confidence']*100:.1f}%</strong><br>
+                                Risk Level: <strong>{result['risk_level']}</strong>
+                            </div>
+                            <div style="margin-top:.8rem; font-size:.85rem; color:{warn_color}">
+                                {warn_msg}
+                            </div>
+                        </div>
+                    </div>""", unsafe_allow_html=True)
+
+                with col_gauge:
+                    fig_voice_gauge = go.Figure(go.Indicator(
+                        mode="gauge+number",
+                        value=round(p_score, 1),
+                        title={"text": "PD Risk", "font": {"size": 22, "color": "white", "weight": "bold"}},
+                        number={"suffix": "%", "font": {"size": 48, "color": "white", "weight": "bold"}},
+                        gauge={
+                            "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "white"},
+                            "bar":  {"color": bar_color},
+                            "steps": [
+                                {"range": [0,  60], "color": "#DCFCE7"},
+                                {"range": [60, 75], "color": "#FEF9C3"},
+                                {"range": [75,100], "color": "#FEE2E2"},
+                            ],
+                            "threshold": {"line": {"color": "white", "width": 3}, "value": p_score}
+                        }
+                    ))
+                    fig_voice_gauge.update_layout(
+                        height=260, margin=dict(l=25, r=25, t=50, b=25),
+                        paper_bgcolor="rgba(0,0,0,0)"
+                    )
+                    st.plotly_chart(fig_voice_gauge, use_container_width=None,
+                                   config={"displayModeBar": False})
+
+                # ── Extracted Features Table ──────────────────────
+                st.markdown("<br>", unsafe_allow_html=True)
+                with st.expander("🔎 View Extracted Voice Biomarkers (22 features)", expanded=False):
+                    feat_df = pd.DataFrame(
+                        list(result["features_used"].items()),
+                        columns=["Feature", "Extracted Value"]
+                    )
+                    st.dataframe(feat_df, use_container_width=None, hide_index=True)
+
+                # ── Generate PDF Report ──
+                st.markdown("<br>", unsafe_allow_html=True)
+                report_bytes = generate_report(result["features_used"], result["pd_probability"]*100)
+                st.download_button(
+                    label="📥 Download Clinical Screening Report (PDF)",
+                    data=report_bytes,
+                    file_name=f"Parkinsons_Voice_Report_{datetime.date.today()}.pdf",
+                    mime="application/pdf",
+                    use_container_width=None,
+                    key="download_mic_report"
+                )
+
+            except ValueError as ve:
+                st.error(f"🎤 {ve}")
+            except FileNotFoundError as fe:
+                st.error(f"🚨 {fe}")
+            except Exception as e:
+                st.error(f"Unexpected error during voice analysis: {e}")
+                st.exception(e)
+            finally:
+                # ── GUARANTEED CLEANUP: delete temp WAV from disk ─
+                if wav_path and os.path.exists(wav_path):
+                    try:
+                        os.remove(wav_path)
+                    except OSError:
+                        pass  # Best-effort deletion; OS will reclaim on reboot
+
+    # ── OR: Upload a Pre-Recorded WAV File ────────────────────────────
+    st.markdown("---")
+    st.markdown(f"""
+    <div class="section-card">
+        <div class="section-card-title">
+            <span>📁</span> Upload a Pre-Recorded Voice Sample
+        </div>
+        <div class="section-card-desc">
+            If you have a clinical-quality recording, upload the WAV file directly
+            for more accurate analysis than a browser microphone can provide.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    uploaded_wav = st.file_uploader(
+        "Upload a pre-recorded voice sample",
+        type=["wav"],
+        key="voice_file_uploader",
+        help="Only uncompressed .wav files are accepted. Mono or stereo, any sample rate."
+    )
+
+    if uploaded_wav:
+        st.audio(uploaded_wav)
+        st.markdown(f"""
+        <div style="font-size:.85rem; color:{vars['text_dim']}; margin:.5rem 0 1rem;
+                    display:flex; align-items:center; gap:6px;">
+            ✅ File loaded: <b>{uploaded_wav.name}</b> — <b>{uploaded_wav.size / 1024:.1f} KB</b>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if st.button("🚀  Analyse Uploaded Audio", type="primary", key="run_upload_analysis"):
+            import tempfile
+            tmp_path = None
+            validated_path = None
+            try:
+                # ── Stage 0: Write uploaded bytes to a secure temp file ──
+                with st.spinner("⏳ Writing to secure buffer..."):
+                    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                        tmp.write(uploaded_wav.read())
+                        tmp_path = tmp.name
+
+                # ── Stage 1: QA Validation Gate ──────────────────────
+                with st.spinner("🔍 Stage 1/3 — Validating audio properties (channels, sample rate, bit depth)..."):
+                    validated_path = validate_audio_properties(tmp_path)
+
+                # ── Stage 2: Praat Feature Extraction ────────────────
+                with st.spinner("🔬 Stage 2/3 — Extracting 22 clinical voice biomarkers via Praat..."):
+                    features = extract_voice_features(validated_path)
+
+                # ── Stage 3: ML Inference ────────────────────────────
+                with st.spinner("🧠 Stage 3/3 — Running Voting Ensemble inference..."):
+                    result = predict_from_voice(features)
+
+                # ── Display Results ───────────────────────────────
+                st.markdown("---")
+                st.markdown("### Diagnostic Results (Uploaded File)")
+
+                col_res, col_gau = st.columns([1.3, 1])
+
+                with col_res:
+                    p_score = result['pd_probability'] * 100
+                    if p_score > 80:
+                        res_class = "result-pd"
+                        title_html = "⚠️ HIGH RISK — Parkinson's Indicators Detected"
+                        val_color = "#fecaca"
+                        warn_color = "#f87171"
+                        warn_msg = "⚠️ High probability. Screening tool only — neurologist confirmation required."
+                        bar_color = "#DC2626"
+                    elif p_score >= 60:
+                        res_class = "result-warning"
+                        title_html = "🟡 MEDIUM RISK — Borderline Indicators Detected"
+                        val_color = "#fef08a"
+                        warn_color = "#fde047"
+                        warn_msg = "🟡 Borderline results. Consider clinical evaluation."
+                        bar_color = "#EAB308"
+                    else:
+                        res_class = "result-healthy"
+                        title_html = "✅ LOW RISK — No Significant Indicators"
+                        val_color = "#bbf7d0"
+                        warn_color = "#4ade80"
+                        warn_msg = "✅ Regular monitoring is still recommended for at-risk age groups."
+                        bar_color = "#16A34A"
+
+                    st.markdown(f"""
+                    <div style="display:flex; flex-direction:column; justify-content:center; height:260px;">
+                        <div class="{res_class}" style="padding:1.5rem;">
+                            <div style="font-size:1.25rem; font-weight:700; color:#ffffff; margin-bottom:.5rem">
+                                {title_html}
+                            </div>
+                            <div style="font-size:1.05rem; color:{val_color}; line-height:1.7">
+                                PD Risk Probability: <strong>{p_score:.1f}%</strong><br>
+                                Model Confidence: <strong>{result['confidence']*100:.1f}%</strong><br>
+                                Risk Level: <strong>{result['risk_level']}</strong>
+                            </div>
+                            <div style="margin-top:.8rem; font-size:.85rem; color:{warn_color}">
+                                {warn_msg}
+                            </div>
+                        </div>
+                    </div>""", unsafe_allow_html=True)
+
+                with col_gau:
+                    fig_up_gauge = go.Figure(go.Indicator(
+                        mode="gauge+number",
+                        value=round(p_score, 1),
+                        title={"text": "PD Risk", "font": {"size": 22, "color": "white", "weight": "bold"}},
+                        number={"suffix": "%", "font": {"size": 48, "color": "white", "weight": "bold"}},
+                        gauge={
+                            "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "white"},
+                            "bar":  {"color": bar_color},
+                            "steps": [
+                                {"range": [0,  60], "color": "#DCFCE7"},
+                                {"range": [60, 75], "color": "#FEF9C3"},
+                                {"range": [75,100], "color": "#FEE2E2"},
+                            ],
+                            "threshold": {"line": {"color": "white", "width": 3}, "value": p_score}
+                        }
+                    ))
+                    fig_up_gauge.update_layout(
+                        height=260, margin=dict(l=25, r=25, t=50, b=25),
+                        paper_bgcolor="rgba(0,0,0,0)"
+                    )
+                    st.plotly_chart(fig_up_gauge, use_container_width=None,
+                                   config={"displayModeBar": False})
+
+                # ── Extracted Features Table ──────────────────────
+                st.markdown("<br>", unsafe_allow_html=True)
+                with st.expander("🔎 View Extracted Voice Biomarkers (22 features)", expanded=False):
+                    feat_df = pd.DataFrame(
+                        list(result["features_used"].items()),
+                        columns=["Feature", "Extracted Value"]
+                    )
+                    st.dataframe(feat_df, use_container_width=None, hide_index=True)
+
+                # ── Generate PDF Report ──
+                st.markdown("<br>", unsafe_allow_html=True)
+                report_bytes = generate_report(result["features_used"], result["pd_probability"]*100)
+                st.download_button(
+                    label="📥 Download Clinical Screening Report (PDF)",
+                    data=report_bytes,
+                    file_name=f"Parkinsons_Upload_Report_{datetime.date.today()}.pdf",
+                    mime="application/pdf",
+                    use_container_width=None,
+                    key="download_upload_report"
+                )
+
+            except InvalidAudioError as ae:
+                st.error(f"🔊 {ae}")
+            except ValueError as ve:
+                st.error(f"🎤 {ve}")
+            except FileNotFoundError as fe:
+                st.error(f"🚨 {fe}")
+            except Exception as e:
+                st.error(f"Unexpected error during uploaded file analysis: {e}")
+                st.exception(e)
+            finally:
+                # ── GUARANTEED CLEANUP: delete ALL temp files from disk ─
+                for path in [tmp_path, validated_path]:
+                    if path and os.path.exists(path):
+                        try:
+                            os.remove(path)
+                        except OSError:
+                            pass
+
 # ── Footer ────────────────────────────────────────────────────────────────
-st.markdown("---")
-st.markdown(
-    "**Shivam Kothiyal** · MCA IIIrd Sem · Roll No: 241347080031 · "
-    "Dept. of CS & IT · H.N.B. Garhwal University · Under the guidance of **Prof. Y.P. Raiwani** · "
-    "*Screening tool only — not a substitute for clinical diagnosis.*"
-)
+# st.markdown("---")
+# st.markdown(
+#     "**Shivam Kothiyal** · MCA IIIrd Sem · Roll No: 241347080031 · "
+#     "Dept. of CS & IT · H.N.B. Garhwal University · Under the guidance of **Prof. Y.P. Raiwani** · "
+#     "*Screening tool only — not a substitute for clinical diagnosis.*"
+# )
+
+
+st.divider()
+st.markdown("""
+    <div style="text-align: center; color: #808080; font-size: 0.9rem;">
+        <strong>Shivam Kothiyal</strong> • MCA IIIrd Sem • Roll No: 241347080031<br>
+        Dept. of CS & IT • <strong>H.N.B. Garhwal University</strong><br>
+        <em>Under the guidance of Prof. Y.P. Raiwani</em>
+    </div>
+    <div style="text-align: center; background-color: #262730; padding: 10px; border-radius: 5px; margin-top: 20px; border: 1px solid #ff4b4b;">
+        <span style="color: #ff4b4b; font-weight: bold;">⚠️ MEDICAL DISCLAIMER:</span> 
+        <span style="color: #fafafa; font-size: 0.8rem;">
+            This system is for screening and research purposes only. It is not a clinical diagnostic tool.
+        </span>
+    </div>
+""", unsafe_allow_html=True)

@@ -30,3 +30,8 @@ data/processed/
 
 parkinsons_150mb_test.csv
 *.csv
+
+# Voice Diagnostics & Reports
+*.wav
+*.pdf
+*.log

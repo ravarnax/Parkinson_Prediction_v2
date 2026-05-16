@@ -40,10 +40,10 @@
     "MDVP:Flo(Hz)",
     "MDVP:Jitter(%)",
     "MDVP:Jitter(Abs)",
+    "Shimmer:APQ3",
     "Shimmer:APQ5",
     "MDVP:APQ",
     "Shimmer:DDA",
-    "NHR",
     "HNR",
     "spread1",
     "spread2",
@@ -55,10 +55,10 @@
     "HNR_NHR_diff"
   ],
   "cv_scores": {
-    "Accuracy": 90.26,
+    "Accuracy": 90.77,
     "Recall": 95.91,
-    "Precision": 92.09,
-    "F1-Score": 93.77,
-    "AUC-ROC": 95.42
+    "Precision": 92.6,
+    "F1-Score": 94.07,
+    "AUC-ROC": 95.71
   }
 }
