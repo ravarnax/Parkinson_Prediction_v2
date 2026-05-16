@@ -95,9 +95,7 @@ graph TD
 
 ## 👨‍💻 Developed By
 
-**Shivam Kothiyal**  
-*MCA Candidate, H.N.B. Garhwal University*  
-*Under the Guidance of Prof. Y.P. Raiwani*
+**Shivam Kothiyal**  | ravarnax
 
 - [LinkedIn Profile](https://www.linkedin.com/in/shivam-kothiyal-a07201195)
 - [Project Documentation (v2)](file:///process.md)
