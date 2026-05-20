@@ -264,8 +264,7 @@ if model is None:
 st.markdown("""
 <div class="main-header">
   <h1>🧠 Parkinson's Disease Early Detection System</h1>
-  <p>MCA Final Year Project &nbsp;·&nbsp; Voting Ensemble (GB + RF + SVM + ExtraTrees)
-     &nbsp;·&nbsp; Feature Engineering + Mutual Info Selection &nbsp;·&nbsp; H.N.B. Garhwal University</p>
+  <p>Voting Ensemble (GB + RF + SVM + ExtraTrees) &nbsp;·&nbsp; Feature Engineering + Mutual Info Selection</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -1247,12 +1246,14 @@ with tab4:
 
 st.divider()
 st.markdown("""
-    <div style="text-align: center; color: #808080; font-size: 0.9rem;">
-        <strong>Shivam Kothiyal</strong> • MCA IIIrd Sem • Roll No: 241347080031<br>
-        Dept. of CS & IT • <strong>H.N.B. Garhwal University</strong><br>
-        <em>Under the guidance of Prof. Y.P. Raiwani</em>
+    <div style="text-align: center; color: #808080; font-size: 0.9rem; margin-bottom: 20px;">
+        Developed by <strong>Shivam Kothiyal</strong><br>
+        <div style="margin-top: 8px;">
+            <a href="https://linkedin.com/in/shivam-kothiyal-a07201195" target="_blank" style="color: #6ee7b7; text-decoration: none; margin-right: 15px;">🔗 LinkedIn</a>
+            <a href="https://github.com/ravarnax" target="_blank" style="color: #6ee7b7; text-decoration: none;">💻 GitHub</a>
+        </div>
     </div>
-    <div style="text-align: center; background-color: #262730; padding: 10px; border-radius: 5px; margin-top: 20px; border: 1px solid #ff4b4b;">
+    <div style="text-align: center; background-color: #262730; padding: 10px; border-radius: 5px; border: 1px solid #ff4b4b;">
         <span style="color: #ff4b4b; font-weight: bold;">⚠️ MEDICAL DISCLAIMER:</span> 
         <span style="color: #fafafa; font-size: 0.8rem;">
             This system is for screening and research purposes only. It is not a clinical diagnostic tool.
